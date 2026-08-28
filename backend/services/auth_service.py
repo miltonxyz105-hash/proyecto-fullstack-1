@@ -2,17 +2,21 @@ from database import supabase
 
 
 def registrar_usuario(nombre: str, edad: int, email: str, password: str):
-
-# crea usuario en auth de supabase
     auth_res = supabase.auth.sign_up({
-        "email": email,  
+        "email": email,
         "password": password
     })
-    
-#obtener uid
+
+    if auth_res.user is None:
+        raise RuntimeError(
+            "No se pudo completar el registro. Verifica que la contrasena "
+            "cumpla los requisitos de Supabase (min 6 caracteres) y que el "
+            "email sea valido. Si la confirmacion por email esta activada, "
+            "el usuario se crea pero requiere validacion antes de iniciar sesion."
+        )
+
     auth_id = auth_res.user.id
 
-#guardar en tabla de usuarios
     data = {
         "auth_id": auth_id,
         "nombre": nombre,
