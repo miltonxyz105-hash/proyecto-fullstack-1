@@ -7,18 +7,18 @@ from router.tarea import router as tarea_router
 from router.juegos import router as juego_router
 from router.usuarios import router as usuarios_router
 
-
 app = FastAPI()
 
-# Permitir peticiones desde el frontend de Vite durante desarrollo
+# Dominios permitidos (Local + Vercel)
 origins = [
     "http://localhost:5173",
     "http://localhost:5174",
+    "https://proyecto-fullstack-1.vercel.app",  # Tu frontend en Vercel
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=origins,  # O usa ["*"] si quieres permitir cualquier origen temporalmente
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -30,7 +30,6 @@ app.include_router(juego_router)
 app.include_router(reviews_router)
 app.include_router(favoritos_router)
 app.include_router(tarea_router)
-
 
 @app.get("/")
 def inicio():
