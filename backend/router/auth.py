@@ -45,10 +45,11 @@ def login(user: loginUser):
             "message": "Usuario logueado exitosamente",
             "access_token": res.session.access_token,
             "refresh_token": res.session.refresh_token,
-            "user":{
+            "user": {
                 "id": res.user.id,
                 "email": res.user.email
-            }}
+            }
+        }
     except Exception as e:
         raise HTTPException(status_code=401, detail=str(e))
     
@@ -59,10 +60,18 @@ def obtener_usuario_logueado(
 
     token = credentials.credentials
 
-    user = supabase.auth.get_user(token)
+    auth_user = supabase.auth.get_user(token)
+
+    # Buscamos el nombre en la tabla de usuarios
+    user_data = supabase.table("usuarios").select("nombre").eq("auth_id", auth_user.user.id).execute()
+
+    nombre = "Invitado"
+    if user_data.data:
+        nombre = user_data.data[0]["nombre"]
 
     return {
-        "email": user.user.email,
-        "id": user.user.id
+        "email": auth_user.user.email,
+        "id": auth_user.user.id,
+        "nombre": nombre
     }
-            
+

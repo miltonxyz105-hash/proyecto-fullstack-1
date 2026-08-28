@@ -5,7 +5,8 @@ from schemas.favoritos_schema import CrearFavorito
 from services.favoritos_service import (
     agregar_favorito,
     eliminar_favorito,
-    obtener_favoritos
+    obtener_favoritos,
+    obtener_favoritos_de_juego
 )
 
 router = APIRouter(
@@ -35,6 +36,19 @@ def listar_favoritos(
 
     return {
         "message": "Favoritos obtenidos exitosamente",
+        "data": res.data
+    }
+
+
+@router.get("/juego/{juego_id}")
+def ver_si_es_favorito(
+    juego_id: int,
+    usuario_id: str = Depends(obtener_usuario_id)
+):
+    res = obtener_favoritos_de_juego(juego_id, usuario_id)
+
+    return {
+        "message": "Favorito verificado",
         "data": res.data
     }
 

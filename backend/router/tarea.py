@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from dependencies.auth import obtener_usuario_id
 
 from services.tarea_service import (
     crear_tarea, 
@@ -9,7 +9,6 @@ from services.tarea_service import (
     actualizar_tarea
 )
 from schemas.tarea_schema import CrearTarea, actualizarTarea
-from database import supabase
 
 
 router = APIRouter(
@@ -17,28 +16,18 @@ router = APIRouter(
     tags=["tareas"]
 )
 
-security = HTTPBearer()
-
 
 @router.post("/")
 def crear_nueva_tarea(
     tarea: CrearTarea,
-    credentials: HTTPAuthorizationCredentials = Depends(security)
+    usuario_id: str = Depends(obtener_usuario_id)
 ):
-    
-    token = credentials.credentials
-    # Aquí puedes agregar lógica para verificar el token y obtener el usuario_id
-    # Por ejemplo, podrías decodificar el token JWT para obtener el usuario_id
-    # Supongamos que obtienes el usuario_id de alguna manera, por ejemplo:
-    
-    user = supabase.auth.get_user(token)
-
-    usuario_id = user.user.id 
-
     res = crear_tarea(
         tarea.titulo,
         tarea.descripcion,
-        usuario_id
+        usuario_id,
+        estado=tarea.estado,
+        fecha_limite=tarea.fecha_limite
     )
 
     return {
@@ -46,16 +35,11 @@ def crear_nueva_tarea(
         "data": res.data
     }
 
+
 @router.get("/")
-def listas_creadas(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
+def listar_tareas(
+    usuario_id: str = Depends(obtener_usuario_id)
 ):
-    token = credentials.credentials
-
-    user = supabase.auth.get_user(token)
-
-    usuario_id = user.user.id 
-
     res = obtener_tareas(usuario_id)
 
     return {
@@ -63,17 +47,12 @@ def listas_creadas(
         "data": res.data
     }
 
+
 @router.delete("/{tarea_id}")
 def borrar_tarea(
     tarea_id: int,
-    credentials: HTTPAuthorizationCredentials = Depends(security)
+    usuario_id: str = Depends(obtener_usuario_id)
 ):
-    token = credentials.credentials
-
-    user = supabase.auth.get_user(token)
-
-    usuario_id = user.user.id 
-
     res = eliminar_tarea(tarea_id, usuario_id)
 
     return {
@@ -81,23 +60,20 @@ def borrar_tarea(
         "data": res.data
     }
 
+
 @router.put("/{tarea_id}")
 def editar_tarea(
     tarea_id: int,
     tarea: actualizarTarea,
-    credentials: HTTPAuthorizationCredentials = Depends(security)
+    usuario_id: str = Depends(obtener_usuario_id)
 ):
-    token = credentials.credentials
-
-    user = supabase.auth.get_user(token)
-
-    usuario_id = user.user.id 
-
     res = actualizar_tarea(
         tarea_id,
         tarea.titulo,
         tarea.descripcion,
-        usuario_id
+        usuario_id,
+        estado=tarea.estado,
+        fecha_limite=tarea.fecha_limite
     )
 
     return {

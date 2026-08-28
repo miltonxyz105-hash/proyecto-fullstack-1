@@ -1,6 +1,18 @@
 from database import supabase
 
 
+def obtener_review(review_id: int, usuario_id: str):
+    res = (
+        supabase
+        .table("reviews")
+        .select("*")
+        .eq("id", review_id)
+        .eq("usuario_id", usuario_id)
+        .execute()
+    )
+    return res
+
+
 def crear_review(
     juego_id: int,
     usuario_id: str,

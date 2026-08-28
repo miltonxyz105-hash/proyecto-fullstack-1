@@ -6,6 +6,7 @@ from services.reviews_service import (
     actualizar_review,
     crear_review,
     eliminar_review,
+    obtener_review,
     obtener_reviews_por_juego,
     obtener_reviews_usuario
 )
@@ -30,6 +31,19 @@ def crear_nueva_review(
 
     return {
         "message": "Review creada exitosamente",
+        "data": res.data
+    }
+
+
+@router.get("/{review_id}")
+def ver_review(
+    review_id: int,
+    usuario_id: str = Depends(obtener_usuario_id)
+):
+    res = obtener_review(review_id, usuario_id)
+
+    return {
+        "message": "Review obtenida exitosamente",
         "data": res.data
     }
 

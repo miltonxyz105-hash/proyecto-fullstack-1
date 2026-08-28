@@ -1,4 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
 from models.usuario import Usuario
 from database import supabase 
 import bcrypt
@@ -8,10 +10,19 @@ router = APIRouter(
     tags=["usuarios"]
 )
 
-@router.get ("/")
-def ver_usuario():
+security = HTTPBearer()
 
-    res = supabase.table("usuarios").select("*").execute()
+
+@router.get("/")
+def ver_usuario(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    token = credentials.credentials
+    user = supabase.auth.get_user(token)
+
+    usuario_id = user.user.id
+
+    res = supabase.table("usuarios").select("*").eq("auth_id", usuario_id).execute()
 
     return {
         "usuarios": res.data

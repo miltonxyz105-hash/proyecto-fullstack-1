@@ -1,6 +1,18 @@
 from database import supabase
 
 
+def obtener_favoritos_de_juego(juego_id: int, usuario_id: str):
+    res = (
+        supabase
+        .table("favoritos")
+        .select("*")
+        .eq("juego_id", juego_id)
+        .eq("usuario_id", usuario_id)
+        .execute()
+    )
+    return res
+
+
 def agregar_favorito(juego_id: int, usuario_id: str):
     data = {
         "juego_id": juego_id,

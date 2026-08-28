@@ -1,0 +1,12 @@
+.env
+*.log
+debug_*.py
+debug_*.txt
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+.vscode/
