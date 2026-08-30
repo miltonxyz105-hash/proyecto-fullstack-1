@@ -3,11 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from router.auth import router as auth_router
 from router.favoritos import router as favoritos_router
 from router.reviews import router as reviews_router
+from router.games import router as games_router  
+
 from router.tarea import router as tarea_router
 from router.juegos import router as juego_router
 from router.usuarios import router as usuarios_router
 
 app = FastAPI()
+app.include_router(games_router)
 
 # Dominios permitidos (Local + Vercel)
 origins = [
