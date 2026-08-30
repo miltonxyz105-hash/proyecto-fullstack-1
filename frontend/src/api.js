@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: 'http://localhost:8000'
+  baseURL: 'https://proyecto-fullstack-1-moip.onrender.com'
 })
 
 // Interceptor para agregar el token a todas las peticiones
