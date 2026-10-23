@@ -45,9 +45,9 @@ export default function Layout({ children }) {
             <span className="nav-icon">❤️</span>
             <span className="nav-text">Favoritos</span>
           </NavLink>
-          <NavLink to="/tareas" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
-            <span className="nav-icon">📌</span>
-            <span className="nav-text">Tareas</span>
+          <NavLink to="/perfil" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+            <span className="nav-icon">👤</span>
+            <span className="nav-text">Mi Perfil</span>
           </NavLink>
         </nav>
 

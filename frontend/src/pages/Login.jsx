@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate } from "react-router-dom"
-import { useAuth } from "../contexts/AuthContext"
+import toast from 'react-hot-toast'
 import styled from 'styled-components'
+
+import { useAuth } from "../contexts/AuthContext"
+import { getApiErrorMessage } from '../utils/apiError'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -18,9 +21,12 @@ export default function Login() {
 
     try {
       await handleLogin(email, password)
+      toast.success('¡Bienvenido de nuevo!')
       navigate('/')
     } catch (err) {
-      setError("Error al iniciar sesion. Verifica tus credenciales.")
+      const mensaje = getApiErrorMessage(err, 'No se pudo iniciar sesión. Verifica tus credenciales.')
+      setError(mensaje)
+      toast.error(mensaje)
     } finally {
       setLoading(false)
     }

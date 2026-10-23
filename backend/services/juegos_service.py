@@ -6,6 +6,7 @@ def obtener_juegos(usuario_id: str):
         .table("juegos")
         .select("*")
         .eq("usuario_id", usuario_id)
+        .order("id")
         .execute()
     )
     return res

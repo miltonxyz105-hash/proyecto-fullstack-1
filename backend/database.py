@@ -1,13 +1,15 @@
+"""Cliente de Supabase (solo uso en el servidor)."""
+
 from supabase import create_client
-from dotenv import load_dotenv
-import os
-load_dotenv()
 
-url = os.getenv("SUPABASE_URL")
-key = os.getenv("SUPABASE_KEY")
+from config import get_settings
 
-if not url or not key:
-    raise RuntimeError("Faltan SUPABASE_URL o SUPABASE_KEY en el archivo .env")
+settings = get_settings()
 
-supabase = create_client(url, key)
+if not settings.supabase_url or not settings.supabase_key:
+    raise RuntimeError(
+        "Faltan SUPABASE_URL o SUPABASE_KEY. "
+        "Copia backend/.env.example a backend/.env y rellena tus credenciales."
+    )
 
+supabase = create_client(settings.supabase_url, settings.supabase_key)

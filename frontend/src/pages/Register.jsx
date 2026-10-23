@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import toast from 'react-hot-toast'
 import styled from 'styled-components'
+
+import { useAuth } from '../contexts/AuthContext'
+import { getApiErrorMessage } from '../utils/apiError'
 
 export default function Register() {
   const [nombre, setNombre] = useState('')
@@ -9,6 +12,7 @@ export default function Register() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [mensajeExito, setMensajeExito] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const { handleRegister } = useAuth()
@@ -20,13 +24,19 @@ export default function Register() {
     setLoading(true)
 
     try {
-      await handleRegister(nombre, parseInt(edad), email, password)
+      const data = await handleRegister(nombre, parseInt(edad, 10), email, password)
+      setMensajeExito(
+        data?.message || 'Cuenta creada. Ya puedes iniciar sesión.'
+      )
+      toast.success(data?.message || 'Cuenta creada correctamente')
       setSuccess(true)
       setTimeout(() => {
         navigate('/login')
-      }, 2000)
+      }, 2600)
     } catch (err) {
-      setError("Error al registrar. intenta nuevamente.")
+      const mensaje = getApiErrorMessage(err, 'No se pudo registrar. Inténtalo nuevamente.')
+      setError(mensaje)
+      toast.error(mensaje)
     } finally {
       setLoading(false)
     }
@@ -42,7 +52,10 @@ export default function Register() {
                 <div id="welcome-line-1">XP Legacy</div>
                 <div id="welcome-line-2">Registro exitoso!</div>
               </div>
-              <p style={{ color: '#ffffff', textAlign: 'center', marginTop: 20, fontSize: 16 }}>
+              <p style={{ color: '#ffffff', textAlign: 'center', marginTop: 20, fontSize: 15, lineHeight: 1.5 }}>
+                {mensajeExito}
+              </p>
+              <p style={{ color: '#888', textAlign: 'center', marginTop: 12, fontSize: 13 }}>
                 Redirigiendo al login...
               </p>
             </div>

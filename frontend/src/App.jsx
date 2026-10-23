@@ -1,76 +1,106 @@
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate  
-} from 'react-router-dom'
-import { useAuth } from './contexts/AuthContext.jsx'
+import { Toaster } from 'react-hot-toast';
+import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 
-// importamos Layout
-import Layout from './components/Layout'
+import ErrorBoundary from './components/ErrorBoundary';
+import Layout from './components/Layout';
+import { useAuth } from './contexts/AuthContext';
+import Dashboard from './pages/Dashboard';
+import Favoritos from './pages/Favoritos';
+import Juegos from './pages/Juegos';
+import Login from './pages/Login';
+import Perfil from './pages/Perfil';
+import Register from './pages/Register';
+import Reviews from './pages/Reviews';
 
-// importamos las paginas 
-import Login from './pages/Login'
-import Register from './pages/Register'
-import Dashboard from './pages/Dashboard'
-import Juegos from './pages/Juegos'
-import Reviews from './pages/Reviews'
-import Favoritos from './pages/Favoritos'
-import Tareas from './pages/Tareas'
-
-//ruta protegida con Layout
+/** Envuelve las rutas privadas: carga de sesión + redirección al login. */
 function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth()
-  
+  const { user, loading } = useAuth();
+
   if (loading) {
-    return <p style={{color: "white"}}>Cargando...</p>
-  }
-  // si no hay usuario, redirigimos al login
-  if (!user) {
-    return <Navigate to="/login" replace />
-  }
-  //si hay usuario, mostramos el Layout con el contenido
-    return <Layout>{children}</Layout>
-  }
-  function App() {
     return (
+      <p style={{ color: 'white', textAlign: 'center', paddingTop: 80 }}>
+        Comprobando sesión...
+      </p>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <Layout>{children}</Layout>;
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
       <Router>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: '#141414',
+              color: '#fff',
+              border: '1px solid #1a1a2e',
+              fontSize: '14px',
+            },
+            success: { iconTheme: { primary: '#28a745', secondary: '#fff' } },
+            error: { iconTheme: { primary: '#dc3545', secondary: '#fff' } },
+          }}
+        />
+
         <Routes>
-          {/* rutas publiclicas: */}
+          {/* Rutas públicas */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* rutas protegidas: */}
-          <Route path="/" element={
-            <ProtectedRoute>
-              <Dashboard />
-              </ProtectedRoute>} 
-              />
-          <Route path="/juegos" element={
-            <ProtectedRoute>
-              <Juegos />
-            </ProtectedRoute>
-          } />
-          <Route path="/reviews" element={
-            <ProtectedRoute>
-              <Reviews />
-            </ProtectedRoute>
-          } />
-          <Route path="/favoritos" element={
-            <ProtectedRoute>
-              <Favoritos />
-            </ProtectedRoute>
-          } />
-          <Route path="/tareas" element={
-            <ProtectedRoute>
-              <Tareas />
-            </ProtectedRoute>
-          } />
+          {/* Rutas protegidas */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/juegos"
+            element={
+              <ProtectedRoute>
+                <Juegos />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/reviews"
+            element={
+              <ProtectedRoute>
+                <Reviews />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/favoritos"
+            element={
+              <ProtectedRoute>
+                <Favoritos />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/perfil"
+            element={
+              <ProtectedRoute>
+                <Perfil />
+              </ProtectedRoute>
+            }
+          />
 
-          {/* rutas por defecto: redirige a / */}
+          {/* Ruta por defecto */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
-    )
-  }
-export default App
+    </ErrorBoundary>
+  );
+}

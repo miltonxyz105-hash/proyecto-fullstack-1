@@ -30,6 +30,7 @@ def obtener_favoritos(usuario_id: str):
         .table("favoritos")
         .select("*")
         .eq("usuario_id", usuario_id)
+        .order("id")
         .execute()
     )
 

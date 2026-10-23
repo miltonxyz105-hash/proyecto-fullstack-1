@@ -1,393 +1,412 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import styled from 'styled-components';
-import { getMisReviews, createReview, updateReview, deleteReview, getJuegos } from '../api';
+
+import Modal from '../components/Modal';
+import {
+  ButtonRow,
+  Field,
+  GhostButton,
+  ModalForm,
+  PrimaryButton,
+  Select,
+  Textarea,
+} from '../components/FormControls';
+import { EmptyState, ErrorView, LoadingView } from '../components/StateViews';
+import {
+  createReview,
+  deleteReview,
+  getJuegos,
+  getMisReviews,
+  updateReview,
+} from '../api';
+import { getApiErrorMessage } from '../utils/apiError';
+
+const FORM_INICIAL = { juego_id: '', puntuacion: 5, comentario: '' };
+
+const asArray = (posible) => (Array.isArray(posible) ? posible : []);
 
 export default function Reviews() {
   const [reviews, setReviews] = useState([]);
   const [juegos, setJuegos] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [cargando, setCargando] = useState(true);
+  const [errorCarga, setErrorCarga] = useState(null);
+  const [guardando, setGuardando] = useState(false);
+
   const [showModal, setShowModal] = useState(false);
   const [editingReview, setEditingReview] = useState(null);
-  const [formData, setFormData] = useState({
-    juego_id: '',
-    puntuacion: 5,
-    comentario: ''
-  });
+  const [formData, setFormData] = useState(FORM_INICIAL);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [reviewsRes, juegosRes] = await Promise.all([getMisReviews(), getJuegos()]);
-      setReviews(reviewsRes.data.data);
-      setJuegos(juegosRes.data.data);
+      setReviews(asArray(reviewsRes.data?.data));
+      setJuegos(asArray(juegosRes.data?.data));
+      setErrorCarga(null);
     } catch (error) {
       console.error('Error al cargar datos:', error);
+      setReviews([]);
+      setJuegos([]);
+      setErrorCarga(
+        getApiErrorMessage(error, 'No se pudieron cargar tus reseñas.')
+      );
     } finally {
-      setLoading(false);
+      setCargando(false);
     }
+  }, []);
+
+  const recargar = () => {
+    setCargando(true);
+    loadData();
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (editingReview) {
-        await updateReview(editingReview.id, formData);
-      } else {
-        await createReview(formData);
-      }
-      loadData();
-      closeModal();
-    } catch (error) {
-      console.error('Error al guardar review:', error);
+  useEffect(() => {
+    async function cargar() {
+      await loadData();
     }
+    cargar();
+  }, [loadData]);
+
+  const abrirNuevo = () => {
+    if (juegos.length === 0) {
+      toast.error('Primero añade un juego a tu biblioteca para poder reseñarlo.');
+      return;
+    }
+    setEditingReview(null);
+    setFormData(FORM_INICIAL);
+    setShowModal(true);
   };
 
   const handleEdit = (review) => {
     setEditingReview(review);
-    setFormData(review);
+    setFormData({
+      juego_id: review.juego_id,
+      puntuacion: review.puntuacion,
+      comentario: review.comentario || '',
+    });
     setShowModal(true);
-  };
-
-  const handleDelete = async (id) => {
-    if (window.confirm('¿Estás seguro de eliminar esta review?')) {
-      try {
-        await deleteReview(id);
-        loadData();
-      } catch (error) {
-        console.error('Error al eliminar review:', error);
-      }
-    }
   };
 
   const closeModal = () => {
     setShowModal(false);
     setEditingReview(null);
-    setFormData({
-      juego_id: '',
-      puntuacion: 5,
-      comentario: ''
-    });
+    setFormData(FORM_INICIAL);
   };
 
-  const handleChange = (e) => {
-    const { name, value, type } = e.target;
-    setFormData(prev => ({
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((prev) => ({
       ...prev,
-      [name]: type === 'number' ? parseInt(value) || 0 : value
+      [name]: name === 'puntuacion' ? parseInt(value, 10) || 0 : value,
     }));
   };
 
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setGuardando(true);
+
+    try {
+      if (editingReview) {
+        await updateReview(editingReview.id, {
+          puntuacion: formData.puntuacion,
+          comentario: formData.comentario,
+        });
+        toast.success('Reseña actualizada');
+      } else {
+        await createReview({
+          juego_id: Number(formData.juego_id),
+          puntuacion: formData.puntuacion,
+          comentario: formData.comentario,
+        });
+        toast.success('Reseña publicada');
+      }
+      await loadData();
+      closeModal();
+    } catch (error) {
+      console.error('Error al guardar review:', error);
+      toast.error(getApiErrorMessage(error, 'No se pudo guardar la reseña.'));
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const handleDelete = async (id, nombreJuego) => {
+    if (!window.confirm(`¿Eliminar tu reseña de "${nombreJuego}"?`)) return;
+
+    try {
+      await deleteReview(id);
+      toast.success('Reseña eliminada');
+      await loadData();
+    } catch (error) {
+      console.error('Error al eliminar review:', error);
+      toast.error(getApiErrorMessage(error, 'No se pudo eliminar la reseña.'));
+    }
+  };
+
   const getJuegoNombre = (juegoId) => {
-    const juego = juegos.find(j => j.id === juegoId);
+    const juego = juegos.find((item) => item.id === juegoId);
     return juego ? juego.nombre : 'Juego no encontrado';
   };
 
   return (
-    <StyledWrapper>
-      <div id="form">
-        <div id="form-body">
-          <div id="welcome-lines">
-            <div id="welcome-line-1">Mis Reviews</div>
-            <div id="welcome-line-2">Tus opiniones sobre los juegos</div>
-          </div>
+    <PageWrapper>
+      <header className="page-header">
+        <div>
+          <h1>Mis Reviews</h1>
+          <p>Tus opiniones sobre los juegos</p>
+        </div>
+        <button type="button" className="add-btn" onClick={abrirNuevo}>
+          ➕ Agregar Review
+        </button>
+      </header>
 
-          <div id="menu">
-            <Link to="/" className="menu-btn">← Volver al Dashboard</Link>
-            <button id="add-btn" onClick={() => setShowModal(true)}>
-              ➕ Agregar Review
-            </button>
-          </div>
+      {cargando ? (
+        <LoadingView mensaje="Cargando tus reseñas..." />
+      ) : (
+        <>
+          {errorCarga && <ErrorView error={errorCarga} onReintentar={recargar} />}
 
-          <div id="reviews-list">
-            {loading ? (
-              <p style={{ color: 'white', textAlign: 'center' }}>Cargando...</p>
-            ) : reviews.length === 0 ? (
-              <p style={{ color: 'white', textAlign: 'center' }}>No tienes reviews aún. ¡Agrega una!</p>
-            ) : (
-              reviews.map(review => (
-                <div key={review.id} className="review-card">
+          {!errorCarga && reviews.length === 0 ? (
+            <EmptyState
+              icono="📝"
+              titulo="No tienes reseñas aún"
+              descripcion={
+                juegos.length === 0
+                  ? 'Añade juegos a tu biblioteca y podrás reseñarlos.'
+                  : 'Cuéntanos qué te parecieron los juegos que juegas.'
+              }
+            >
+              <button type="button" className="empty-cta" onClick={abrirNuevo}>
+                Escribir mi primera reseña
+              </button>
+            </EmptyState>
+          ) : (
+            <List>
+              {reviews.map((review) => (
+                <Card key={review.id}>
                   <div className="review-info">
                     <h3>{getJuegoNombre(review.juego_id)}</h3>
-                    <p>⭐ {review.puntuacion}/10</p>
-                    <p>{review.comentario}</p>
+                    <p className="score">⭐ {review.puntuacion}/10</p>
+                    <p className="comment">{review.comentario}</p>
                   </div>
                   <div className="review-actions">
-                    <button className="edit-btn" onClick={() => handleEdit(review)}>✏️</button>
-                    <button className="delete-btn" onClick={() => handleDelete(review.id)}>🗑️</button>
+                    <button
+                      type="button"
+                      className="edit-btn"
+                      onClick={() => handleEdit(review)}
+                      title="Editar"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      type="button"
+                      className="delete-btn"
+                      onClick={() =>
+                        handleDelete(review.id, getJuegoNombre(review.juego_id))
+                      }
+                      title="Eliminar"
+                    >
+                      🗑️
+                    </button>
                   </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-
-      {showModal && (
-        <ModalOverlay onClick={closeModal}>
-          <ModalContent onClick={(e) => e.stopPropagation()}>
-            <h2>{editingReview ? 'Editar Review' : 'Agregar Review'}</h2>
-            <form onSubmit={handleSubmit}>
-              <select name="juego_id" value={formData.juego_id} onChange={handleChange} required>
-                <option value="">Selecciona un juego</option>
-                {juegos.map(juego => (
-                  <option key={juego.id} value={juego.id}>{juego.nombre}</option>
-                ))}
-              </select>
-              <input
-                type="number"
-                name="puntuacion"
-                placeholder="Puntuación (1-10)"
-                value={formData.puntuacion}
-                onChange={handleChange}
-                min="1"
-                max="10"
-                required
-              />
-              <textarea
-                name="comentario"
-                placeholder="Tu comentario..."
-                value={formData.comentario}
-                onChange={handleChange}
-                rows="4"
-                required
-              />
-              <div className="modal-buttons">
-                <button type="submit" className="save-btn">Guardar</button>
-                <button type="button" className="cancel-btn" onClick={closeModal}>Cancelar</button>
-              </div>
-            </form>
-          </ModalContent>
-        </ModalOverlay>
+                </Card>
+              ))}
+            </List>
+          )}
+        </>
       )}
-    </StyledWrapper>
+
+      <Modal
+        isOpen={showModal}
+        onClose={closeModal}
+        title={editingReview ? 'Editar Review' : 'Agregar Review'}
+      >
+        <ModalForm onSubmit={handleSubmit}>
+          <Field>
+            Juego
+            <Select
+              name="juego_id"
+              value={formData.juego_id}
+              onChange={handleChange}
+              disabled={Boolean(editingReview)}
+              required
+            >
+              <option value="">Selecciona un juego</option>
+              {juegos.map((juego) => (
+                <option key={juego.id} value={juego.id}>
+                  {juego.nombre}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          <Field>
+            Puntuación: {formData.puntuacion}/10
+            <input
+              type="range"
+              name="puntuacion"
+              min="1"
+              max="10"
+              step="1"
+              value={formData.puntuacion}
+              onChange={handleChange}
+              style={{ width: '100%', accentColor: '#007bff' }}
+            />
+          </Field>
+
+          <Field>
+            Comentario
+            <Textarea
+              name="comentario"
+              placeholder="¿Qué te pareció?"
+              value={formData.comentario}
+              onChange={handleChange}
+              rows="4"
+              maxLength={2000}
+              required
+            />
+          </Field>
+
+          <ButtonRow>
+            <GhostButton type="button" onClick={closeModal} disabled={guardando}>
+              Cancelar
+            </GhostButton>
+            <PrimaryButton type="submit" disabled={guardando}>
+              {guardando ? 'Guardando...' : 'Guardar'}
+            </PrimaryButton>
+          </ButtonRow>
+        </ModalForm>
+      </Modal>
+    </PageWrapper>
   );
 }
 
-const StyledWrapper = styled.div`
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  background-color: #000;
+const PageWrapper = styled.div`
   padding: 20px;
 
-  #form {
-    width: 90%;
-    max-width: 600px;
-    background-color: #161616;
-    padding: 25px;
-    border-radius: 10px;
-    position: relative;
-    box-shadow: 0px 15px 60px #007bff;
-    outline: 1px solid #007bff;
-  }
-
-  #form-body {
-    width: 100%;
-  }
-
-  #welcome-lines {
-    text-align: center;
-    line-height: 1;
-    margin-bottom: 30px;
-  }
-
-  #welcome-line-1 {
-    color: #007bff;
-    font-weight: 600;
-    font-size: 32px;
-  }
-
-  #welcome-line-2 {
-    color: #ffffff;
-    margin-top: 10px;
-    font-size: 16px;
-  }
-
-  #menu {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-  }
-
-  .menu-btn, #add-btn {
-    flex: 1;
-    color: #007bff;
-    padding: 12px 16px;
-    border: 1px solid #007bff;
-    border-radius: 8px;
-    text-decoration: none;
-    text-align: center;
-    font-size: 14px;
-    font-weight: 600;
-    background: transparent;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-  }
-
-  .menu-btn:hover, #add-btn:hover {
-    background-color: #007bff;
-    color: #161616;
-  }
-
-  #reviews-list {
-    max-height: 400px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-  }
-
-  .review-card {
-    background: #1a1a1a;
-    border: 1px solid #333;
-    border-radius: 8px;
-    padding: 15px;
+  .page-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+
+    h1 {
+      color: #fff;
+      margin: 0 0 4px;
+      font-size: 28px;
+    }
+
+    p {
+      color: #666;
+      margin: 0;
+    }
   }
 
-  .review-info h3 {
-    color: #007bff;
-    margin: 0 0 8px 0;
-    font-size: 18px;
+  .add-btn {
+    background: #007bff;
+    color: #fff;
+    border: none;
+    padding: 12px 18px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      background: #0056b3;
+    }
   }
 
-  .review-info p {
-    color: #ccc;
-    margin: 4px 0;
-    font-size: 13px;
+  .empty-cta {
+    background: #007bff;
+    color: #fff;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      background: #0056b3;
+    }
+  }
+`;
+
+const List = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+`;
+
+const Card = styled.div`
+  background: #141414;
+  border: 1px solid #1a1a2e;
+  border-radius: 12px;
+  padding: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+
+  .review-info {
+    flex: 1;
+
+    h3 {
+      color: #007bff;
+      margin: 0 0 6px;
+      font-size: 17px;
+    }
+
+    .score {
+      color: #ffc107;
+      margin: 0 0 6px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .comment {
+      color: #bbb;
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
   }
 
   .review-actions {
     display: flex;
     gap: 8px;
-  }
+    flex-shrink: 0;
 
-  .edit-btn, .delete-btn {
-    background: transparent;
-    border: 1px solid;
-    border-radius: 6px;
-    padding: 8px 12px;
-    cursor: pointer;
-    font-size: 16px;
-    transition: background-color 0.3s ease;
-  }
+    button {
+      background: transparent;
+      border: 1px solid;
+      border-radius: 6px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 15px;
+    }
 
-  .edit-btn {
-    border-color: #007bff;
-    color: #007bff;
-  }
+    .edit-btn {
+      border-color: #007bff;
+      color: #007bff;
 
-  .edit-btn:hover {
-    background: #007bff;
-    color: #161616;
-  }
+      &:hover {
+        background: #007bff;
+        color: #161616;
+      }
+    }
 
-  .delete-btn {
-    border-color: #dc3545;
-    color: #dc3545;
-  }
+    .delete-btn {
+      border-color: #dc3545;
+      color: #dc3545;
 
-  .delete-btn:hover {
-    background: #dc3545;
-    color: #161616;
-  }
-`;
-
-const ModalOverlay = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
-  display: grid;
-  place-items: center;
-  z-index: 1000;
-`;
-
-const ModalContent = styled.div`
-  background: #161616;
-  padding: 30px;
-  border-radius: 10px;
-  width: 90%;
-  max-width: 400px;
-  box-shadow: 0px 15px 60px #007bff;
-  outline: 1px solid #007bff;
-
-  h2 {
-    color: #007bff;
-    text-align: center;
-    margin-top: 0;
-    margin-bottom: 20px;
-  }
-
-  form {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  input, select, textarea {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #333;
-    border-radius: 8px;
-    background: #1a1a1a;
-    color: white;
-    font-size: 14px;
-    box-sizing: border-box;
-    font-family: inherit;
-  }
-
-  textarea {
-    resize: vertical;
-  }
-
-  input:focus, select:focus, textarea:focus {
-    outline: 1px solid #007bff;
-    border-color: #007bff;
-  }
-
-  .modal-buttons {
-    display: flex;
-    gap: 10px;
-    margin-top: 10px;
-  }
-
-  .save-btn, .cancel-btn {
-    flex: 1;
-    padding: 12px;
-    border: 1px solid;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-  }
-
-  .save-btn {
-    background: #007bff;
-    color: white;
-    border-color: #007bff;
-  }
-
-  .save-btn:hover {
-    background: #0056b3;
-  }
-
-  .cancel-btn {
-    background: transparent;
-    color: #dc3545;
-    border-color: #dc3545;
-  }
-
-  .cancel-btn:hover {
-    background: #dc3545;
-    color: white;
+      &:hover {
+        background: #dc3545;
+        color: #161616;
+      }
+    }
   }
 `;

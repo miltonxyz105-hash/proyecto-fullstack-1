@@ -31,12 +31,14 @@ def crear_review(
     return res
 
 
-def obtener_reviews_por_juego(juego_id: int):
+def obtener_reviews_por_juego(juego_id: int, usuario_id: str):
     res = (
         supabase
         .table("reviews")
         .select("*")
         .eq("juego_id", juego_id)
+        .eq("usuario_id", usuario_id)
+        .order("id")
         .execute()
     )
 
@@ -49,6 +51,7 @@ def obtener_reviews_usuario(usuario_id: str):
         .table("reviews")
         .select("*")
         .eq("usuario_id", usuario_id)
+        .order("id")
         .execute()
     )
 
