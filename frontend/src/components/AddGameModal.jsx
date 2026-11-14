@@ -25,8 +25,8 @@ export default function AddGameModal({ isOpen, onClose, onGameAdded }) {
   const fetchGames = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:8000/games');
-      let data = res.data;
+          const res = await axios.get(`${import.meta.env.VITE_API_URL}/games`);
+            let data = res.data;
 
       // Si viene como string, intentamos convertirlo
       if (typeof data === 'string') {
