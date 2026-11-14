@@ -34,16 +34,14 @@ def crear_nueva_review(
         "data": res.data
     }
 
-
-@router.get("/{review_id}")
-def ver_review(
-    review_id: int,
+@router.get("/mias")
+def listar_mis_reviews(
     usuario_id: str = Depends(obtener_usuario_id)
 ):
-    res = obtener_review(review_id, usuario_id)
+    res = obtener_reviews_usuario(usuario_id)
 
     return {
-        "message": "Review obtenida exitosamente",
+        "message": "Reviews del usuario obtenidas exitosamente",
         "data": res.data
     }
 
@@ -58,14 +56,15 @@ def listar_reviews_de_juego(juego_id: int):
     }
 
 
-@router.get("/mias")
-def listar_mis_reviews(
+@router.get("/{review_id}")
+def ver_review(
+    review_id: int,
     usuario_id: str = Depends(obtener_usuario_id)
 ):
-    res = obtener_reviews_usuario(usuario_id)
+    res = obtener_review(review_id, usuario_id)
 
     return {
-        "message": "Reviews del usuario obtenidas exitosamente",
+        "message": "Review obtenida exitosamente",
         "data": res.data
     }
 

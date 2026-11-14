@@ -21,11 +21,22 @@ export default function Reviews() {
 
   const loadData = async () => {
     try {
-      const [reviewsRes, juegosRes] = await Promise.all([getMisReviews(), getJuegos()]);
-      setReviews(reviewsRes.data.data);
-      setJuegos(juegosRes.data.data);
-    } catch (error) {
-      console.error('Error al cargar datos:', error);
+      const [reviewsResult, juegosResult] = await Promise.allSettled([
+        getMisReviews(),
+        getJuegos()
+      ]);
+
+      if (reviewsResult.status === 'fulfilled') {
+        setReviews(reviewsResult.value.data?.data || reviewsResult.value.data || []);
+      } else {
+        console.error('Error al cargar reviews:', reviewsResult.reason);
+      }
+
+      if (juegosResult.status === 'fulfilled') {
+        setJuegos(juegosResult.value.data?.data || juegosResult.value.data || []);
+      } else {
+        console.error('Error al cargar juegos:', juegosResult.reason);
+      }
     } finally {
       setLoading(false);
     }
@@ -77,7 +88,7 @@ export default function Reviews() {
     const { name, value, type } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'number' ? parseInt(value) || 0 : value
+      [name]: (type === 'number' || name === 'juego_id') ? (parseInt(value) || '') : value
     }));
   };
 
