@@ -11,7 +11,6 @@ from router.usuarios import router as usuarios_router
 
 app = FastAPI()
 app.include_router(games_router)
-
 # Dominios permitidos (Local + Vercel)
 origins = [
     "http://localhost:5173",
