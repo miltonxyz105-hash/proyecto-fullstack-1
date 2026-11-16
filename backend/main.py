@@ -4,7 +4,7 @@ from router.auth import router as auth_router
 from router.favoritos import router as favoritos_router
 from router.reviews import router as reviews_router
 from router.games import router as games_router  
-
+from router import catalogo 
 from router.tarea import router as tarea_router
 from router.juegos import router as juego_router
 from router.usuarios import router as usuarios_router
