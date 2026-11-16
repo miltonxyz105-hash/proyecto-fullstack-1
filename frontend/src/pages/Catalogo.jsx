@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { buscarCatalogo } from '../api';
+import axios from 'axios';
 
 export default function Catalogo() {
   const [query, setQuery] = useState('');
@@ -22,6 +23,32 @@ export default function Catalogo() {
     } finally {
       setLoading(false);
       setSearched(true);
+    }
+  };
+
+  // Función para guardar el juego en Supabase (Próximo paso en el backend)
+  const guardarEnMisJuegos = async (juego) => {
+    try {
+      // Tomamos el ID del usuario si lo tenés guardado (ajustá esto según tu auth)
+      const usuario_id = localStorage.getItem("usuario_id") || "ID_TEST"; 
+
+      // Alerta temporal hasta que armemos la ruta en el backend
+      alert(`Preparando para guardar: \${juego.nombre}. \n¡Falta crear la ruta en el backend!`);
+      
+      /* ESTE SERÁ EL CÓDIGO REAL:
+      await axios.post("https://TU_BACKEND_EN_RENDER.onrender.com/juegos/guardar", {
+        id_externo: juego.id_externo,
+        nombre: juego.nombre,
+        imagen: juego.imagen,
+        generos: juego.generos.join(", "),
+        plataforma: juego.plataformas[0] || "PC",
+        usuario_id: usuario_id
+      });
+      alert("¡Juego guardado en tu perfil!");
+      */
+    } catch (error) {
+      console.error("Error al guardar el juego:", error);
+      alert("Hubo un error al guardar el juego.");
     }
   };
 
@@ -51,29 +78,29 @@ export default function Catalogo() {
             </button>
           </form>
 
-          <div className="resultados-grid">
+          <div className="resultados-list">
             {!loading && searched && resultados.length === 0 && (
-              <p style={{ color: 'white', textAlign: 'center', gridColumn: '1 / -1' }}>
+              <p style={{ color: 'white', textAlign: 'center' }}>
                 No se encontraron juegos con ese nombre.
               </p>
             )}
 
             {resultados.map((juego) => (
-              <div key={juego.id_externo} className="game-card">
+              <div key={juego.id_externo} className="game-card-horizontal">
                 {juego.imagen ? (
-                  <img src={juego.imagen} alt={juego.nombre} className="game-img" />
+                  <img src={juego.imagen} alt={juego.nombre} className="game-img-horizontal" />
                 ) : (
-                  <div className="game-img-placeholder">Sin imagen</div>
+                  <div className="game-img-placeholder-horizontal">Sin imagen</div>
                 )}
-                <div className="game-info">
+                
+                <div className="game-info-horizontal">
                   <h3>{juego.nombre}</h3>
-                  <p>📅 {juego.fecha_lanzamiento || 'Sin fecha'}</p>
-                  <p>🎮 {juego.generos.join(', ') || 'Varios'}</p>
-                  <p>🖥️ {juego.plataformas.slice(0, 3).join(', ')}{juego.plataformas.length > 3 ? '...' : ''}</p>
-                  
-                  {/* Acá después le agregamos el botón para guardarlo en tu DB */}
-                  <button className="add-db-btn" onClick={() => alert('Próximo ticket: Guardar en DB!')}>
-                    ➕ Agregar a mi lista
+                  <p className="game-genres">{juego.generos.join(', ') || 'Varios'}</p>
+                </div>
+                
+                <div className="game-actions">
+                  <button className="add-db-btn" onClick={() => guardarEnMisJuegos(juego)}>
+                    ➕ Añadir a mi lista
                   </button>
                 </div>
               </div>
@@ -110,23 +137,10 @@ const StyledWrapper = styled.div`
     margin-bottom: 30px;
   }
 
-  #welcome-line-1 {
-    color: #007bff;
-    font-weight: 600;
-    font-size: 32px;
-  }
+  #welcome-line-1 { color: #007bff; font-weight: 600; font-size: 32px; }
+  #welcome-line-2 { color: #ffffff; margin-top: 10px; font-size: 16px; }
 
-  #welcome-line-2 {
-    color: #ffffff;
-    margin-top: 10px;
-    font-size: 16px;
-  }
-
-  #menu {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-  }
+  #menu { display: flex; gap: 10px; margin-bottom: 20px; }
 
   .menu-btn {
     color: #007bff;
@@ -137,14 +151,9 @@ const StyledWrapper = styled.div`
     font-weight: 600;
     transition: background-color 0.3s;
   }
-
   .menu-btn:hover { background-color: #007bff; color: #161616; }
 
-  .search-form {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 30px;
-  }
+  .search-form { display: flex; gap: 10px; margin-bottom: 30px; }
 
   .search-input {
     flex: 1;
@@ -155,11 +164,7 @@ const StyledWrapper = styled.div`
     color: white;
     font-size: 16px;
   }
-
-  .search-input:focus {
-    outline: 1px solid #007bff;
-    border-color: #007bff;
-  }
+  .search-input:focus { outline: 1px solid #007bff; border-color: #007bff; }
 
   .search-btn {
     padding: 0 25px;
@@ -172,34 +177,38 @@ const StyledWrapper = styled.div`
     cursor: pointer;
     transition: background-color 0.3s;
   }
-
   .search-btn:hover:not(:disabled) { background: #0056b3; }
   .search-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  .resultados-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 20px;
-  }
-
-  .game-card {
-    background: #1a1a1a;
-    border: 1px solid #333;
-    border-radius: 10px;
-    overflow: hidden;
+  /* NUEVOS ESTILOS PARA LA LISTA HORIZONTAL */
+  .resultados-list {
     display: flex;
     flex-direction: column;
+    gap: 15px;
   }
 
-  .game-img {
-    width: 100%;
-    height: 160px;
+  .game-card-horizontal {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    transition: border-color 0.3s;
+  }
+  
+  .game-card-horizontal:hover {
+    border-color: #007bff;
+  }
+
+  .game-img-horizontal {
+    width: 250px;
+    height: 140px;
     object-fit: cover;
   }
 
-  .game-img-placeholder {
-    width: 100%;
-    height: 160px;
+  .game-img-placeholder-horizontal {
+    width: 250px;
+    height: 140px;
     background: #333;
     display: flex;
     align-items: center;
@@ -207,39 +216,38 @@ const StyledWrapper = styled.div`
     color: #666;
   }
 
-  .game-info {
-    padding: 15px;
+  .game-info-horizontal {
+    padding: 15px 20px;
     display: flex;
     flex-direction: column;
+    justify-content: center;
     flex: 1;
   }
 
-  .game-info h3 {
-    color: #007bff;
-    margin: 0 0 10px 0;
-    font-size: 18px;
+  .game-info-horizontal h3 {
+    color: #fff;
+    margin: 0 0 5px 0;
+    font-size: 20px;
   }
 
-  .game-info p {
-    color: #ccc;
-    margin: 4px 0;
-    font-size: 13px;
+  .game-genres {
+    color: #888;
+    margin: 0;
+    font-size: 14px;
+  }
+
+  .game-actions {
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-left: 1px solid #333;
   }
 
   .add-db-btn {
-    margin-top: auto;
-    padding: 10px;
+    padding: 10px 20px;
     background: transparent;
     border: 1px solid #28a745;
     color: #28a745;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: bold;
-    transition: all 0.3s;
-  }
-
-  .add-db-btn:hover {
-    background: #28a745;
-    color: white;
-  }
+    border;}
 `;
