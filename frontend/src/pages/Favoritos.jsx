@@ -16,11 +16,22 @@ export default function Favoritos() {
 
   const loadData = async () => {
     try {
-      const [favRes, juegosRes] = await Promise.all([getMisFavoritos(), getJuegos()]);
-      setFavoritos(favRes.data.data);
-      setJuegos(juegosRes.data.data);
-    } catch (error) {
-      console.error('Error al cargar datos:', error);
+      const [favResult, juegosResult] = await Promise.allSettled([
+        getMisFavoritos(),
+        getJuegos()
+      ]);
+
+      if (favResult.status === 'fulfilled') {
+        setFavoritos(favResult.value.data?.data || favResult.value.data || []);
+      } else {
+        console.error('Error al cargar favoritos:', favResult.reason);
+      }
+
+      if (juegosResult.status === 'fulfilled') {
+        setJuegos(juegosResult.value.data?.data || juegosResult.value.data || []);
+      } else {
+        console.error('Error al cargar juegos:', juegosResult.reason);
+      }
     } finally {
       setLoading(false);
     }
@@ -29,8 +40,8 @@ export default function Favoritos() {
   const handleAgregar = async (e) => {
     e.preventDefault();
     if (!selectedJuego) return;
-    try {
-      await agregarFavorito({ juego_id: selectedJuego });
+    try { 
+      await agregarFavorito({ juego_id: parseInt(selectedJuego) });
       loadData();
       closeModal();
     } catch (error) {
