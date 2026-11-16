@@ -1,61 +1,58 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useState, useEffect } from 'react';
+import { buscarCatalogo } from '../api'; // Importamos la conexión a RAWG
 
-// Lista visual de juegos populares en caso de que el backend devuelva texto/líneas
+// Lista por defecto cuando el buscador está vacío
 const POPULAR_GAMES = [
-  { id: 540, title: 'Overwatch 2', genre: 'Shooter', platform: 'PC', thumbnail: 'https://www.freetogame.com/g/540/thumbnail.jpg', short_description: 'Hero shooter de acción por equipos.' },
-  { id: 516, title: 'PUBG: BATTLEGROUNDS', genre: 'Shooter', platform: 'PC', thumbnail: 'https://www.freetogame.com/g/516/thumbnail.jpg', short_description: 'Battle royale táctico intenso.' },
-  { id: 475, title: 'Genshin Impact', genre: 'Action RPG', platform: 'PC', thumbnail: 'https://www.freetogame.com/g/475/thumbnail.jpg', short_description: 'RPG de mundo abierto en Teyvat.' },
-  { id: 523, title: 'Fall Guys', genre: 'Battle Royale', platform: 'PC', thumbnail: 'https://www.freetogame.com/g/523/thumbnail.jpg', short_description: 'Juego de fiesta multijugador masivo.' },
-  { id: 521, title: 'Diablo Immortal', genre: 'MMORPG', platform: 'PC', thumbnail: 'https://www.freetogame.com/g/521/thumbnail.jpg', short_description: 'MMORPG ambientado en el universo de Diablo.' },
-  { id: 517, title: 'Lost Ark', genre: 'ARPG', platform: 'PC', thumbnail: 'https://www.freetogame.com/g/517/thumbnail.jpg', short_description: 'Explora un vasto mundo lleno de acción.' }
+  { id: 540, title: 'Overwatch 2', genre: 'Shooter', platform: 'PC', thumbnail: 'https://www.freetogame.com/g/540/thumbnail.jpg' },
+  { id: 516, title: 'PUBG: BATTLEGROUNDS', genre: 'Shooter', platform: 'PC', thumbnail: 'https://www.freetogame.com/g/516/thumbnail.jpg' },
+  { id: 475, title: 'Genshin Impact', genre: 'Action RPG', platform: 'PC', thumbnail: 'https://www.freetogame.com/g/475/thumbnail.jpg' },
+  { id: 523, title: 'Fall Guys', genre: 'Battle Royale', platform: 'PC', thumbnail: 'https://www.freetogame.com/g/523/thumbnail.jpg' }
 ];
 
 export default function AddGameModal({ isOpen, onClose, onGameAdded }) {
-  const [games, setGames] = useState([]);
+  const [games, setGames] = useState(POPULAR_GAMES);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Reiniciar la lista cuando se abre el modal
   useEffect(() => {
     if (isOpen) {
-      fetchGames();
+      setGames(POPULAR_GAMES);
+      setSearch('');
     }
   }, [isOpen]);
 
-  const fetchGames = async () => {
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    
+    if (!search.trim()) {
+      setGames(POPULAR_GAMES);
+      return;
+    }
+
     setLoading(true);
     try {
-          const res = await axios.get(`${import.meta.env.VITE_API_URL}/games`);
-            let data = res.data;
+      // Llamamos a RAWG a través de tu backend
+      const res = await buscarCatalogo(search);
+      const resultadosRAWG = res.data.data || [];
+      
+      // Adaptamos los datos de RAWG para que encajen en las tarjetas de tu modal
+      const juegosAdaptados = resultadosRAWG.map(j => ({
+        id: j.id_externo,
+        title: j.nombre,
+        genre: j.generos[0] || 'Varios', // Toma el primer género
+        platform: j.plataformas[0] || 'PC', // Toma la primera plataforma
+        thumbnail: j.imagen,
+        rawg_data: j // Guardamos toda la info por si la necesitamos al agregar
+      }));
 
-      // Si viene como string, intentamos convertirlo
-      if (typeof data === 'string') {
-        try {
-          data = JSON.parse(data);
-        } catch (e) {
-          data = null; // No era JSON válido (era texto o HTML con líneas)
-        }
-      }
-
-      // Verificamos que sea un arreglo real de objetos con título
-      if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'object' && data[0].title) {
-        setGames(data);
-      } else {
-        setGames(POPULAR_GAMES);
-      }
+      setGames(juegosAdaptados);
     } catch (err) {
-      console.error('Error al conectar:', err);
-      setGames(POPULAR_GAMES);
+      console.error('Error al conectar con RAWG:', err);
     } finally {
       setLoading(false);
     }
   };
-
-  if (!isOpen) return null;
-
-  const filteredGames = games.filter((game) =>
-    game.title?.toLowerCase().includes(search.toLowerCase())
-  );
 
   const handleAddClick = (e, game) => {
     e.preventDefault();
@@ -64,6 +61,8 @@ export default function AddGameModal({ isOpen, onClose, onGameAdded }) {
     onClose();
   };
 
+  if (!isOpen) return null;
+
   return (
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
@@ -71,34 +70,39 @@ export default function AddGameModal({ isOpen, onClose, onGameAdded }) {
         {/* Cabecera */}
         <div style={styles.header}>
           <h2 style={{ color: '#007bff', margin: 0, fontSize: '20px', fontWeight: 'bold' }}>
-            Catálogo de Juegos Populares
+            Catálogo Mundial RAWG
           </h2>
           <button type="button" onClick={onClose} style={styles.closeBtn}>✕</button>
         </div>
 
         {/* Buscador */}
-        <div style={styles.searchBox}>
-          <input
-            type="text"
-            placeholder="Buscar por nombre (ej: Overwatch, PUBG, Genshin)..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={styles.input}
-          />
-        </div>
+        <form onSubmit={handleSearch} style={styles.searchBox}>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <input
+              type="text"
+              placeholder="Buscar cualquier juego (Ej: Elden Ring, Minecraft)..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={styles.input}
+            />
+            <button type="submit" style={styles.searchBtn} disabled={loading}>
+              🔍
+            </button>
+          </div>
+        </form>
 
         {/* Tarjetas de Juegos */}
         <div style={styles.grid}>
           {loading ? (
             <p style={{ color: '#007bff', textAlign: 'center', gridColumn: '1 / -1', padding: '40px 0' }}>
-              Cargando catálogo...
+              Buscando en RAWG...
             </p>
-          ) : filteredGames.length === 0 ? (
+          ) : games.length === 0 ? (
             <p style={{ color: '#888', textAlign: 'center', gridColumn: '1 / -1', padding: '40px 0' }}>
               No se encontraron juegos con ese título
             </p>
           ) : (
-            filteredGames.map((game) => (
+            games.map((game) => (
               <div key={game.id} style={styles.card}>
                 <img 
                   src={game.thumbnail} 
@@ -111,7 +115,7 @@ export default function AddGameModal({ isOpen, onClose, onGameAdded }) {
                 <div style={styles.cardContent}>
                   <div>
                     <h3 style={styles.cardTitle} title={game.title}>{game.title}</h3>
-                    <span style={styles.genreBadge}>{game.genre || 'Juego'}</span>
+                    <span style={styles.genreBadge}>{game.genre}</span>
                   </div>
                   <button
                     type="button"
@@ -174,7 +178,7 @@ const styles = {
     borderBottom: '1px solid #222'
   },
   input: {
-    width: '100%',
+    flex: 1,
     backgroundColor: '#1a1a2e',
     color: '#fff',
     border: '1px solid #333',
@@ -183,6 +187,14 @@ const styles = {
     fontSize: '14px',
     outline: 'none',
     boxSizing: 'border-box'
+  },
+  searchBtn: {
+    backgroundColor: '#007bff',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    padding: '0 20px',
+    cursor: 'pointer'
   },
   grid: {
     padding: '20px',
