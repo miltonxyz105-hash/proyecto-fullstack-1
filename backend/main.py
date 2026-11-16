@@ -32,6 +32,7 @@ app.include_router(juego_router)
 app.include_router(reviews_router)
 app.include_router(favoritos_router)
 app.include_router(tarea_router)
+app.include_router(catalogo.router)
 
 @app.get("/")
 def inicio():
