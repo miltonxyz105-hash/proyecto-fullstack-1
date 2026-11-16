@@ -52,4 +52,7 @@ export const createTarea = (data) => api.post('/tareas/', data)
 export const updateTarea = (id, data) => api.put(`/tareas/${id}`, data)
 export const deleteTarea = (id) => api.delete(`/tareas/${id}`)
 
+// CATÁLOGO RAWG
+export const buscarCatalogo = (query) => api.get(`/catalogo/buscar?q=${query}`);
+
 export default api
