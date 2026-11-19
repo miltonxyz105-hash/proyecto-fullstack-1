@@ -57,7 +57,7 @@ export default function Catalogo() {
       <div id="form">
         <div id="form-body">
           <div id="welcome-lines">
-            <div id="welcome-line-1">Catálogo Mundial </div>
+            <div id="welcome-line-1">Catálogo Mundial"</div>
             <div id="welcome-line-2">Buscá entre más de 500,000 juegos</div>
           </div>
 

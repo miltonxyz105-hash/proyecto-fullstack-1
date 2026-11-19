@@ -1,436 +1,433 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import styled from 'styled-components';
-import { getTareas, createTarea, updateTarea, deleteTarea } from '../api';
+import React, { useState } from 'react';
+import styled, { keyframes } from 'styled-components';
 
-export default function Tareas() {
-  const [tareas, setTareas] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [editingTarea, setEditingTarea] = useState(null);
-  const [formData, setFormData] = useState({
-    titulo: '',
-    descripcion: '',
-    estado: 'pendiente',
-    fecha_limite: ''
-  });
-
-  useEffect(() => {
-    loadTareas();
-  }, []);
-
-  const loadTareas = async () => {
-    try {
-      const res = await getTareas();
-      setTareas(res.data.data);
-    } catch (error) {
-      console.error('Error al cargar tareas:', error);
-    } finally {
-      setLoading(false);
+export default function QuestLog() {
+  // Datos de ejemplo simulando misiones
+  const [tasks, setTasks] = useState([
+    {
+      id: 1,
+      type: 'MAIN QUEST',
+      title: 'Platinar Sekiro: Shadows Die Twice',
+      description: 'Conseguir los 4 finales distintos en New Game+ para desbloquear el último logro.',
+      reward: '1000 XP',
+      completed: false,
+      urgent: true,
+    },
+    {
+      id: 2,
+      type: 'DAILY',
+      title: 'Revisar Wishlist en Steam',
+      description: 'Chequear si Hollow Knight o Hades bajaron más del 50% en las ofertas de otoño.',
+      reward: '50 XP',
+      completed: true,
+      urgent: false,
+    },
+    {
+      id: 3,
+      type: 'SIDE QUEST',
+      title: 'Limpiar el Backlog',
+      description: 'Terminar al menos 2 juegos indies que llevan más de 6 meses juntando polvo digital.',
+      reward: '300 XP',
+      completed: false,
+      urgent: false,
     }
+  ]);
+
+  const toggleTask = (id) => {
+    setTasks(tasks.map(task => 
+      task.id === id ? { ...task, completed: !task.completed } : task
+    ));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (editingTarea) {
-        await updateTarea(editingTarea.id, formData);
-      } else {
-        await createTarea(formData);
-      }
-      loadTareas();
-      closeModal();
-    } catch (error) {
-      console.error('Error al guardar tarea:', error);
-    }
-  };
-
-  const handleEdit = (tarea) => {
-    setEditingTarea(tarea);
-    setFormData(tarea);
-    setShowModal(true);
-  };
-
-  const handleDelete = async (id) => {
-    if (window.confirm('¿Estás seguro de eliminar esta tarea?')) {
-      try {
-        await deleteTarea(id);
-        loadTareas();
-      } catch (error) {
-        console.error('Error al eliminar tarea:', error);
-      }
-    }
-  };
-
-  const handleToggleEstado = async (tarea) => {
-    const nuevoEstado = tarea.estado === 'pendiente' ? 'completada' : 'pendiente';
-    try {
-      await updateTarea(tarea.id, { ...tarea, estado: nuevoEstado });
-      loadTareas();
-    } catch (error) {
-      console.error('Error al actualizar estado:', error);
-    }
-  };
-
-  const closeModal = () => {
-    setShowModal(false);
-    setEditingTarea(null);
-    setFormData({
-      titulo: '',
-      descripcion: '',
-      estado: 'pendiente',
-      fecha_limite: ''
-    });
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const getEstadoColor = (estado) => {
-    return estado === 'completada' ? '#28a745' : '#ffc107';
-  };
+  const completedCount = tasks.filter(t => t.completed).length;
+  const progress = Math.round((completedCount / tasks.length) * 100);
 
   return (
-    <StyledWrapper>
-      <div id="form">
-        <div id="form-body">
-          <div id="welcome-lines">
-            <div id="welcome-line-1">Mis Tareas</div>
-            <div id="welcome-line-2">Gestiona tus pendientes</div>
-          </div>
+    <TasksWrapper>
+      <div className="bg-grid"></div>
 
-          <div id="menu">
-            <Link to="/" className="menu-btn">← Volver al Dashboard</Link>
-            <button id="add-btn" onClick={() => setShowModal(true)}>
-              ➕ Agregar Tarea
-            </button>
-          </div>
-
-          <div id="tareas-list">
-            {loading ? (
-              <p style={{ color: 'white', textAlign: 'center' }}>Cargando...</p>
-            ) : tareas.length === 0 ? (
-              <p style={{ color: 'white', textAlign: 'center' }}>No tienes tareas aún. ¡Agrega una!</p>
-            ) : (
-              tareas.map(tarea => (
-                <div key={tarea.id} className="tarea-card">
-                  <div className="tarea-info">
-                    <h3 style={{ textDecoration: tarea.estado === 'completada' ? 'line-through' : 'none' }}>
-                      {tarea.titulo}
-                    </h3>
-                    {tarea.descripcion && <p>{tarea.descripcion}</p>}
-                    <div className="tarea-meta">
-                      <span className="estado-badge" style={{ backgroundColor: getEstadoColor(tarea.estado) }}>
-                        {tarea.estado}
-                      </span>
-                      {tarea.fecha_limite && <span>📅 {tarea.fecha_limite}</span>}
-                    </div>
-                  </div>
-                  <div className="tarea-actions">
-                    <button className="toggle-btn" onClick={() => handleToggleEstado(tarea)} title="Cambiar estado">
-                      {tarea.estado === 'completada' ? '↩️' : '✅'}
-                    </button>
-                    <button className="edit-btn" onClick={() => handleEdit(tarea)}>✏️</button>
-                    <button className="delete-btn" onClick={() => handleDelete(tarea.id)}>🗑️</button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+      <Header>
+        <div className="title-area">
+          <h1>Registro de Misiones</h1>
+          <p>Gestiona tus objetivos, compras y backlog</p>
         </div>
+
+        <ProgressDisplay>
+          <div className="progress-info">
+            <span className="label">PROGRESO DEL SECTOR</span>
+            <span className="percent">{progress}%</span>
+          </div>
+          <div className="bar-bg">
+            <div className="bar-fill" style={{ width: `${progress}%` }}>
+              <div className="glow-tip"></div>
+            </div>
+          </div>
+        </ProgressDisplay>
+      </Header>
+
+      <div className="controls">
+        <NewQuestButton>
+          <span className="icon">+</span> ACEPTAR NUEVO CONTRATO
+        </NewQuestButton>
       </div>
 
-      {showModal && (
-        <ModalOverlay onClick={closeModal}>
-          <ModalContent onClick={(e) => e.stopPropagation()}>
-            <h2>{editingTarea ? 'Editar Tarea' : 'Agregar Tarea'}</h2>
-            <form onSubmit={handleSubmit}>
-              <input
-                type="text"
-                name="titulo"
-                placeholder="Título"
-                value={formData.titulo}
-                onChange={handleChange}
-                required
-              />
-              <textarea
-                name="descripcion"
-                placeholder="Descripción (opcional)"
-                value={formData.descripcion}
-                onChange={handleChange}
-                rows="3"
-              />
-              <select name="estado" value={formData.estado} onChange={handleChange}>
-                <option value="pendiente">Pendiente</option>
-                <option value="completada">Completada</option>
-              </select>
-              <input
-                type="date"
-                name="fecha_limite"
-                placeholder="Fecha límite (opcional)"
-                value={formData.fecha_limite}
-                onChange={handleChange}
-              />
-              <div className="modal-buttons">
-                <button type="submit" className="save-btn">Guardar</button>
-                <button type="button" className="cancel-btn" onClick={closeModal}>Cancelar</button>
+      <TaskList>
+        {tasks.map((task) => (
+          <QuestCard 
+            key={task.id} 
+            $completed={task.completed} 
+            $urgent={task.urgent}
+            onClick={() => toggleTask(task.id)}
+          >
+            <div className="status-indicator">
+              <div className="checkbox">
+                {task.completed && (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                )}
               </div>
-            </form>
-          </ModalContent>
-        </ModalOverlay>
-      )}
-    </StyledWrapper>
+              {!task.completed && <div className="pulse-line"></div>}
+            </div>
+
+            <div className="quest-content">
+              <div className="quest-meta">
+                <span className={`quest-type ${task.type.toLowerCase().replace(' ', '-')}`}>
+                  [{task.type}]
+                </span>
+                {task.urgent && !task.completed && (
+                  <span className="urgent-tag">⚠ ALTA PRIORIDAD</span>
+                )}
+              </div>
+              
+              <h2 className="quest-title">{task.title}</h2>
+              <p className="quest-desc">{task.description}</p>
+            </div>
+
+            <div className="quest-reward">
+              <span className="reward-label">RECOMPENSA</span>
+              <span className="reward-value">{task.reward}</span>
+            </div>
+
+            <div className="hover-glitch"></div>
+          </QuestCard>
+        ))}
+      </TaskList>
+    </TasksWrapper>
   );
 }
 
-const StyledWrapper = styled.div`
+// --- ANIMACIONES ---
+const scan = keyframes`
+  0% { transform: translateY(-10px); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: translateY(30px); opacity: 0; }
+`;
+
+const pulseWarning = keyframes`
+  0% { box-shadow: 0 0 0 0 rgba(255, 0, 85, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(255, 0, 85, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 0, 85, 0); }
+`;
+
+// --- ESTILOS ---
+const TasksWrapper = styled.div`
+  width: 100%;
   min-height: 100vh;
-  display: grid;
-  place-items: center;
-  background-color: #000;
-  padding: 20px;
+  background-color: #040406;
+  padding: 40px 60px;
+  position: relative;
+  overflow: hidden;
+  color: #fff;
+  z-index: 1;
 
-  #form {
-    width: 90%;
-    max-width: 600px;
-    background-color: #161616;
-    padding: 25px;
-    border-radius: 10px;
-    position: relative;
-    box-shadow: 0px 15px 60px #007bff;
-    outline: 1px solid #007bff;
+  .bg-grid {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image: 
+      linear-gradient(to right, rgba(0, 123, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0, 123, 255, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(circle at top right, black, transparent 80%);
   }
+`;
 
-  #form-body {
-    width: 100%;
+const Header = styled.header`
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 30px;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.1);
+  padding-bottom: 20px;
+
+  .title-area {
+    h1 {
+      font-size: 42px;
+      font-weight: 900;
+      margin: 0;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #fff;
+      text-shadow: 0 0 20px rgba(0, 229, 255, 0.4);
+    }
+    p {
+      margin: 5px 0 0 0;
+      color: #4a4a6a;
+      font-size: 16px;
+      letter-spacing: 1px;
+    }
   }
+`;
 
-  #welcome-lines {
-    text-align: center;
-    line-height: 1;
-    margin-bottom: 30px;
-  }
+const ProgressDisplay = styled.div`
+  width: 300px;
+  background: rgba(10, 10, 20, 0.6);
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #1a1a2e;
 
-  #welcome-line-1 {
-    color: #007bff;
-    font-weight: 600;
-    font-size: 32px;
-  }
-
-  #welcome-line-2 {
-    color: #ffffff;
-    margin-top: 10px;
-    font-size: 16px;
-  }
-
-  #menu {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-  }
-
-  .menu-btn, #add-btn {
-    flex: 1;
-    color: #007bff;
-    padding: 12px 16px;
-    border: 1px solid #007bff;
-    border-radius: 8px;
-    text-decoration: none;
-    text-align: center;
-    font-size: 14px;
-    font-weight: 600;
-    background: transparent;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-  }
-
-  .menu-btn:hover, #add-btn:hover {
-    background-color: #007bff;
-    color: #161616;
-  }
-
-  #tareas-list {
-    max-height: 400px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-  }
-
-  .tarea-card {
-    background: #1a1a1a;
-    border: 1px solid #333;
-    border-radius: 8px;
-    padding: 15px;
+  .progress-info {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    margin-bottom: 8px;
+    
+    .label {
+      font-size: 12px;
+      color: #4a4a6a;
+      font-weight: 800;
+      letter-spacing: 1px;
+    }
+    .percent {
+      font-size: 14px;
+      color: #00e5ff;
+      font-weight: 900;
+      text-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+    }
   }
 
-  .tarea-info h3 {
-    color: #007bff;
-    margin: 0 0 8px 0;
-    font-size: 18px;
-  }
-
-  .tarea-info p {
-    color: #ccc;
-    margin: 4px 0;
-    font-size: 13px;
-  }
-
-  .tarea-meta {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    margin-top: 8px;
-  }
-
-  .estado-badge {
-    padding: 4px 8px;
+  .bar-bg {
+    width: 100%;
+    height: 6px;
+    background: #040406;
     border-radius: 4px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #000;
-  }
+    overflow: hidden;
 
-  .tarea-actions {
-    display: flex;
-    gap: 8px;
-  }
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #007bff, #00e5ff);
+      position: relative;
+      transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 
-  .toggle-btn, .edit-btn, .delete-btn {
-    background: transparent;
-    border: 1px solid;
-    border-radius: 6px;
-    padding: 8px 12px;
-    cursor: pointer;
-    font-size: 16px;
-    transition: background-color 0.3s ease;
-  }
-
-  .toggle-btn {
-    border-color: #ffc107;
-    color: #ffc107;
-  }
-
-  .toggle-btn:hover {
-    background: #ffc107;
-    color: #000;
-  }
-
-  .edit-btn {
-    border-color: #007bff;
-    color: #007bff;
-  }
-
-  .edit-btn:hover {
-    background: #007bff;
-    color: #161616;
-  }
-
-  .delete-btn {
-    border-color: #dc3545;
-    color: #dc3545;
-  }
-
-  .delete-btn:hover {
-    background: #dc3545;
-    color: #161616;
+      .glow-tip {
+        position: absolute;
+        right: 0;
+        top: 0;
+        height: 100%;
+        width: 15px;
+        background: #fff;
+        filter: blur(3px);
+      }
+    }
   }
 `;
 
-const ModalOverlay = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
-  display: grid;
-  place-items: center;
-  z-index: 1000;
+const controls = styled.div`
+  margin-bottom: 30px;
 `;
 
-const ModalContent = styled.div`
-  background: #161616;
-  padding: 30px;
-  border-radius: 10px;
-  width: 90%;
-  max-width: 400px;
-  box-shadow: 0px 15px 60px #007bff;
-  outline: 1px solid #007bff;
+const NewQuestButton = styled.button`
+  background: rgba(0, 229, 255, 0.05);
+  color: #00e5ff;
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  padding: 16px 32px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.3s ease;
+  margin-bottom: 30px;
 
-  h2 {
-    color: #007bff;
-    text-align: center;
-    margin-top: 0;
-    margin-bottom: 20px;
+  .icon {
+    font-size: 20px;
+    font-weight: 900;
   }
 
-  form {
+  &:hover {
+    background: rgba(0, 229, 255, 0.15);
+    border-color: #00e5ff;
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.3), inset 0 0 10px rgba(0, 229, 255, 0.2);
+    transform: translateX(5px);
+  }
+`;
+
+const TaskList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+`;
+
+const QuestCard = styled.div`
+  display: flex;
+  align-items: stretch;
+  background: ${(props) => props.$completed ? 'rgba(10, 10, 20, 0.4)' : 'linear-gradient(90deg, #0a0a14 0%, #06060a 100%)'};
+  border: 1px solid ${(props) => {
+    if (props.$completed) return '#1a1a2e';
+    if (props.$urgent) return 'rgba(255, 0, 85, 0.4)';
+    return '#1a1a2e';
+  }};
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  opacity: ${(props) => props.$completed ? 0.6 : 1};
+
+  &:hover {
+    background: ${(props) => props.$completed ? 'rgba(10, 10, 20, 0.8)' : '#0c0c16'};
+    border-color: ${(props) => props.$completed ? '#4a4a6a' : '#00e5ff'};
+    transform: translateX(10px);
+    box-shadow: ${(props) => props.$completed ? 'none' : '0 5px 20px rgba(0, 123, 255, 0.15)'};
+
+    .hover-glitch {
+      opacity: ${(props) => props.$completed ? 0 : 0.1};
+    }
+    
+    .checkbox {
+      border-color: ${(props) => props.$completed ? '#00e5ff' : '#00e5ff'};
+      box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+    }
+  }
+
+  .status-indicator {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    align-items: center;
+    justify-content: center;
+    padding-right: 24px;
+    border-right: 1px solid #1a1a2e;
+    position: relative;
+
+    .checkbox {
+      width: 28px;
+      height: 28px;
+      border: 2px solid ${(props) => props.$completed ? '#00e5ff' : '#4a4a6a'};
+      border-radius: ${(props) => props.$completed ? '50%' : '6px'};
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: all 0.3s;
+      background: ${(props) => props.$completed ? 'rgba(0, 229, 255, 0.1)' : 'transparent'};
+
+      svg {
+        width: 16px;
+        height: 16px;
+        color: #00e5ff;
+        filter: drop-shadow(0 0 5px rgba(0, 229, 255, 0.8));
+      }
+    }
+
+    .pulse-line {
+      position: absolute;
+      bottom: -20px;
+      width: 2px;
+      height: 40px;
+      background: linear-gradient(to bottom, #00e5ff, transparent);
+      animation: ${scan} 2s infinite;
+    }
   }
 
-  input, select, textarea {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #333;
-    border-radius: 8px;
-    background: #1a1a1a;
-    color: white;
-    font-size: 14px;
-    box-sizing: border-box;
-    font-family: inherit;
-  }
-
-  textarea {
-    resize: vertical;
-  }
-
-  input:focus, select:focus, textarea:focus {
-    outline: 1px solid #007bff;
-    border-color: #007bff;
-  }
-
-  .modal-buttons {
-    display: flex;
-    gap: 10px;
-    margin-top: 10px;
-  }
-
-  .save-btn, .cancel-btn {
+  .quest-content {
     flex: 1;
-    padding: 12px;
-    border: 1px solid;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
+    padding: 0 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    .quest-meta {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 8px;
+      align-items: center;
+
+      .quest-type {
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        
+        &.main-quest { color: #ffd700; }
+        &.daily { color: #00ff88; }
+        &.side-quest { color: #b57cff; }
+      }
+
+      .urgent-tag {
+        background: rgba(255, 0, 85, 0.1);
+        color: #ff0055;
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        border: 1px solid rgba(255, 0, 85, 0.3);
+        animation: ${pulseWarning} 2s infinite;
+      }
+    }
+
+    .quest-title {
+      margin: 0 0 6px 0;
+      font-size: 20px;
+      font-weight: 800;
+      color: ${(props) => props.$completed ? '#4a4a6a' : '#fff'};
+      text-decoration: ${(props) => props.$completed ? 'line-through' : 'none'};
+      transition: color 0.3s;
+    }
+
+    .quest-desc {
+      margin: 0;
+      font-size: 14px;
+      color: #b0b0c0;
+      line-height: 1.5;
+    }
   }
 
-  .save-btn {
-    background: #007bff;
-    color: white;
-    border-color: #007bff;
+  .quest-reward {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    padding-left: 24px;
+    border-left: 1px solid #1a1a2e;
+
+    .reward-label {
+      font-size: 10px;
+      color: #4a4a6a;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .reward-value {
+      font-size: 18px;
+      font-weight: 900;
+      color: ${(props) => props.$completed ? '#4a4a6a' : '#00e5ff'};
+      text-shadow: ${(props) => props.$completed ? 'none' : '0 0 10px rgba(0, 229, 255, 0.4)'};
+    }
   }
 
-  .save-btn:hover {
-    background: #0056b3;
+  .hover-glitch {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(0, 229, 255, 0.2), transparent);
+    transform: translateX(-100%);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.5s ease, opacity 0.3s ease;
   }
 
-  .cancel-btn {
-    background: transparent;
-    color: #dc3545;
-    border-color: #dc3545;
-  }
-
-  .cancel-btn:hover {
-    background: #dc3545;
-    color: white;
+  &:hover .hover-glitch {
+    transform: translateX(100%);
   }
 `;

@@ -1,404 +1,400 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import styled from 'styled-components';
-import { getMisReviews, createReview, updateReview, deleteReview, getJuegos } from '../api';
+import React from 'react';
+import styled, { keyframes } from 'styled-components';
 
 export default function Reviews() {
-  const [reviews, setReviews] = useState([]);
-  const [juegos, setJuegos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [editingReview, setEditingReview] = useState(null);
-  const [formData, setFormData] = useState({
-    juego_id: '',
-    puntuacion: 5,
-    comentario: ''
-  });
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    try {
-      const [reviewsResult, juegosResult] = await Promise.allSettled([
-        getMisReviews(),
-        getJuegos()
-      ]);
-
-      if (reviewsResult.status === 'fulfilled') {
-        setReviews(reviewsResult.value.data?.data || reviewsResult.value.data || []);
-      } else {
-        console.error('Error al cargar reviews:', reviewsResult.reason);
-      }
-
-      if (juegosResult.status === 'fulfilled') {
-        setJuegos(juegosResult.value.data?.data || juegosResult.value.data || []);
-      } else {
-        console.error('Error al cargar juegos:', juegosResult.reason);
-      }
-    } finally {
-      setLoading(false);
+  // Datos de ejemplo para tus reseñas
+  const reviewsData = [
+    {
+      id: 1,
+      gameTitle: 'Cyberpunk 2077',
+      image: 'https://www.freetogame.com/g/540/thumbnail.jpg',
+      score: 9.5,
+      date: '15/10/2026',
+      hoursPlayed: 120,
+      recommended: true,
+      text: "Después de todas las actualizaciones, la ciudad de Night City se siente más viva que nunca. La narrativa es profunda, los personajes son inolvidables y el combate es brutal. Una redención absoluta para el estudio."
+    },
+    {
+      id: 2,
+      gameTitle: 'Starfield',
+      image: 'https://www.freetogame.com/g/516/thumbnail.jpg',
+      score: 6.8,
+      date: '02/11/2026',
+      hoursPlayed: 45,
+      recommended: false,
+      text: "Tiene momentos brillantes, pero la exploración se siente fragmentada por tantas pantallas de carga. Cumple como RPG espacial, pero le falta el alma que tenían otros juegos de la compañía. Bueno, pero no increíble."
+    },
+    {
+      id: 3,
+      gameTitle: 'Hades',
+      image: 'https://www.freetogame.com/g/475/thumbnail.jpg',
+      score: 10,
+      date: '20/09/2026',
+      hoursPlayed: 85,
+      recommended: true,
+      text: "Una obra maestra del género roguelike. La forma en que la historia avanza con cada muerte hace que el fracaso sea parte de la diversión. La música, el arte y la jugabilidad son perfectos de principio a fin."
     }
-  };
+  ];
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (editingReview) {
-        await updateReview(editingReview.id, formData);
-      } else {
-        await createReview(formData);
-      }
-      loadData();
-      closeModal();
-    } catch (error) {
-      console.error('Error al guardar review:', error);
-    }
-  };
-
-  const handleEdit = (review) => {
-    setEditingReview(review);
-    setFormData(review);
-    setShowModal(true);
-  };
-
-  const handleDelete = async (id) => {
-    if (window.confirm('¿Estás seguro de eliminar esta review?')) {
-      try {
-        await deleteReview(id);
-        loadData();
-      } catch (error) {
-        console.error('Error al eliminar review:', error);
-      }
-    }
-  };
-
-  const closeModal = () => {
-    setShowModal(false);
-    setEditingReview(null);
-    setFormData({
-      juego_id: '',
-      puntuacion: 5,
-      comentario: ''
-    });
-  };
-
-  const handleChange = (e) => {
-    const { name, value, type } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: (type === 'number' || name === 'juego_id') ? (parseInt(value) || '') : value
-    }));
-  };
-
-  const getJuegoNombre = (juegoId) => {
-    const juego = juegos.find(j => j.id === juegoId);
-    return juego ? juego.nombre : 'Juego no encontrado';
+  // Función para determinar el color de la nota
+  const getScoreColor = (score) => {
+    if (score >= 9) return '#00e5ff'; // Cyan para obras maestras
+    if (score >= 7) return '#00ff88'; // Verde neón para buenos
+    if (score >= 5) return '#ffaa00'; // Naranja para regulares
+    return '#ff0055'; // Rojo para malos
   };
 
   return (
-    <StyledWrapper>
-      <div id="form">
-        <div id="form-body">
-          <div id="welcome-lines">
-            <div id="welcome-line-1">Mis Reviews</div>
-            <div id="welcome-line-2">Tus opiniones sobre los juegos</div>
-          </div>
+    <ReviewsWrapper>
+      <div className="bg-grid"></div>
 
-          <div id="menu">
-            <Link to="/" className="menu-btn">← Volver al Dashboard</Link>
-            <button id="add-btn" onClick={() => setShowModal(true)}>
-              ➕ Agregar Review
-            </button>
-          </div>
-
-          <div id="reviews-list">
-            {loading ? (
-              <p style={{ color: 'white', textAlign: 'center' }}>Cargando...</p>
-            ) : reviews.length === 0 ? (
-              <p style={{ color: 'white', textAlign: 'center' }}>No tienes reviews aún. ¡Agrega una!</p>
-            ) : (
-              reviews.map(review => (
-                <div key={review.id} className="review-card">
-                  <div className="review-info">
-                    <h3>{getJuegoNombre(review.juego_id)}</h3>
-                    <p>⭐ {review.puntuacion}/10</p>
-                    <p>{review.comentario}</p>
-                  </div>
-                  <div className="review-actions">
-                    <button className="edit-btn" onClick={() => handleEdit(review)}>✏️</button>
-                    <button className="delete-btn" onClick={() => handleDelete(review.id)}>🗑️</button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+      <Header>
+        <div className="title-area">
+          <h1>Análisis & Reseñas</h1>
+          <p>Tus veredictos y registros de juego</p>
         </div>
-      </div>
+        <NewReviewButton>
+          <span className="btn-text">+ NUEVO ANÁLISIS</span>
+          <div className="glitch-effect"></div>
+        </NewReviewButton>
+      </Header>
 
-      {showModal && (
-        <ModalOverlay onClick={closeModal}>
-          <ModalContent onClick={(e) => e.stopPropagation()}>
-            <h2>{editingReview ? 'Editar Review' : 'Agregar Review'}</h2>
-            <form onSubmit={handleSubmit}>
-              <select name="juego_id" value={formData.juego_id} onChange={handleChange} required>
-                <option value="">Selecciona un juego</option>
-                {juegos.map(juego => (
-                  <option key={juego.id} value={juego.id}>{juego.nombre}</option>
-                ))}
-              </select>
-              <input
-                type="number"
-                name="puntuacion"
-                placeholder="Puntuación (1-10)"
-                value={formData.puntuacion}
-                onChange={handleChange}
-                min="1"
-                max="10"
-                required
-              />
-              <textarea
-                name="comentario"
-                placeholder="Tu comentario..."
-                value={formData.comentario}
-                onChange={handleChange}
-                rows="4"
-                required
-              />
-              <div className="modal-buttons">
-                <button type="submit" className="save-btn">Guardar</button>
-                <button type="button" className="cancel-btn" onClick={closeModal}>Cancelar</button>
+      <ReviewsGrid>
+        {reviewsData.map((review) => (
+          <ReviewCard key={review.id} $scoreColor={getScoreColor(review.score)}>
+            <div className="card-header">
+              <div className="game-art">
+                <img src={review.image} alt={review.gameTitle} />
+                <div className="art-overlay"></div>
               </div>
-            </form>
-          </ModalContent>
-        </ModalOverlay>
-      )}
-    </StyledWrapper>
+              
+              <div className="header-info">
+                <h2>{review.gameTitle}</h2>
+                <div className="meta-data">
+                  <span className="terminal-text">REGISTRO_{review.id} // {review.date}</span>
+                </div>
+              </div>
+
+              <div className="score-hexagon">
+                <div className="hex-inner">
+                  <span className="score-value">{review.score}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="card-body">
+              <div className="quote-icon">"</div>
+              <p>{review.text}</p>
+            </div>
+
+            <div className="card-footer">
+              <div className="hours-logged">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                <span>{review.hoursPlayed} HRS REGISTRADAS</span>
+              </div>
+              
+              <div className={`recommendation ${review.recommended ? 'yes' : 'no'}`}>
+                {review.recommended ? (
+                  <>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+                    </svg>
+                    RECOMENDADO
+                  </>
+                ) : (
+                  <>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"></path>
+                    </svg>
+                    NO RECOMENDADO
+                  </>
+                )}
+              </div>
+            </div>
+          </ReviewCard>
+        ))}
+      </ReviewsGrid>
+    </ReviewsWrapper>
   );
 }
 
-const StyledWrapper = styled.div`
+// --- ANIMACIONES ---
+const float = keyframes`
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-5px); }
+  100% { transform: translateY(0px); }
+`;
+
+const pulseBorder = keyframes`
+  0% { box-shadow: 0 0 0 0 rgba(var(--score-color-rgb), 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(var(--score-color-rgb), 0); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--score-color-rgb), 0); }
+`;
+
+// --- ESTILOS ---
+const ReviewsWrapper = styled.div`
+  width: 100%;
   min-height: 100vh;
+  background-color: #040406;
+  padding: 40px 60px;
+  position: relative;
+  overflow: hidden;
+  color: #fff;
+  z-index: 1;
+
+  .bg-grid {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image: 
+      linear-gradient(to right, rgba(0, 123, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0, 123, 255, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(circle at top left, black, transparent 80%);
+  }
+`;
+
+const Header = styled.header`
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 50px;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.1);
+  padding-bottom: 20px;
+
+  .title-area {
+    h1 {
+      font-size: 48px;
+      font-weight: 900;
+      margin: 0;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #fff;
+      text-shadow: 0 0 20px rgba(0, 229, 255, 0.4), 0 0 10px rgba(0, 123, 255, 0.4);
+    }
+    p {
+      margin: 5px 0 0 0;
+      color: #4a4a6a;
+      font-size: 16px;
+      letter-spacing: 1px;
+    }
+  }
+`;
+
+const NewReviewButton = styled.button`
+  background: transparent;
+  color: #00e5ff;
+  border: 1px solid #007bff;
+  padding: 14px 28px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 15px rgba(0, 123, 255, 0.2) inset;
+
+  .btn-text { position: relative; z-index: 2; }
+
+  &:hover {
+    background: #007bff;
+    color: #fff;
+    border-color: #00e5ff;
+    box-shadow: 0 0 20px rgba(0, 123, 255, 0.6), 0 0 40px rgba(0, 123, 255, 0.2) inset;
+  }
+`;
+
+const ReviewsGrid = styled.div`
   display: grid;
-  place-items: center;
-  background-color: #000;
-  padding: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+  gap: 40px;
+`;
 
-  #form {
-    width: 90%;
-    max-width: 600px;
-    background-color: #161616;
-    padding: 25px;
-    border-radius: 10px;
+const ReviewCard = styled.div`
+  background: linear-gradient(145deg, #0a0a14 0%, #050508 100%);
+  border: 1px solid #1a1a2e;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+
+  /* Variables dinámicas para el color de la nota */
+  --score-color: ${(props) => props.$scoreColor};
+  
+  /* Conversión manual rápida de HEX a RGB para el box-shadow */
+  --score-color-rgb: ${(props) => 
+    props.$scoreColor === '#00e5ff' ? '0, 229, 255' : 
+    props.$scoreColor === '#00ff88' ? '0, 255, 136' : 
+    props.$scoreColor === '#ffaa00' ? '255, 170, 0' : '255, 0, 85'
+  };
+
+  &:hover {
+    transform: translateY(-5px);
+    border-color: var(--score-color);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6), 0 0 20px rgba(var(--score-color-rgb), 0.15) inset;
+    
+    .score-hexagon {
+      animation: ${pulseBorder} 2s infinite;
+    }
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    padding: 24px;
+    border-bottom: 1px solid #1a1a2e;
     position: relative;
-    box-shadow: 0px 15px 60px #007bff;
-    outline: 1px solid #007bff;
+    
+    .game-art {
+      width: 70px;
+      height: 70px;
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+      margin-right: 20px;
+      border: 1px solid #2a2a3e;
+
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .art-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, rgba(var(--score-color-rgb), 0.4) 0%, transparent 100%);
+        mix-blend-mode: overlay;
+      }
+    }
+
+    .header-info {
+      flex: 1;
+
+      h2 {
+        margin: 0 0 6px 0;
+        font-size: 24px;
+        font-weight: 800;
+        color: #fff;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .terminal-text {
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 12px;
+        color: #4a4a6a;
+        letter-spacing: 1px;
+      }
+    }
+
+    .score-hexagon {
+      width: 60px;
+      height: 60px;
+      background: rgba(var(--score-color-rgb), 0.1);
+      border: 2px solid var(--score-color);
+      border-radius: 12px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transform: rotate(45deg);
+      box-shadow: 0 0 15px rgba(var(--score-color-rgb), 0.3);
+      transition: all 0.3s;
+
+      .hex-inner {
+        transform: rotate(-45deg);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .score-value {
+        font-size: 22px;
+        font-weight: 900;
+        color: var(--score-color);
+        text-shadow: 0 0 10px rgba(var(--score-color-rgb), 0.8);
+      }
+    }
   }
 
-  #form-body {
-    width: 100%;
-  }
-
-  #welcome-lines {
-    text-align: center;
-    line-height: 1;
-    margin-bottom: 30px;
-  }
-
-  #welcome-line-1 {
-    color: #007bff;
-    font-weight: 600;
-    font-size: 32px;
-  }
-
-  #welcome-line-2 {
-    color: #ffffff;
-    margin-top: 10px;
-    font-size: 16px;
-  }
-
-  #menu {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-  }
-
-  .menu-btn, #add-btn {
+  .card-body {
+    padding: 30px 24px;
+    position: relative;
     flex: 1;
-    color: #007bff;
-    padding: 12px 16px;
-    border: 1px solid #007bff;
-    border-radius: 8px;
-    text-decoration: none;
-    text-align: center;
-    font-size: 14px;
-    font-weight: 600;
-    background: transparent;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
+
+    .quote-icon {
+      position: absolute;
+      top: 10px;
+      left: 15px;
+      font-size: 60px;
+      font-weight: 900;
+      color: rgba(255, 255, 255, 0.03);
+      font-family: serif;
+      line-height: 1;
+    }
+
+    p {
+      margin: 0;
+      color: #b0b0c0;
+      font-size: 15px;
+      line-height: 1.7;
+      position: relative;
+      z-index: 2;
+    }
   }
 
-  .menu-btn:hover, #add-btn:hover {
-    background-color: #007bff;
-    color: #161616;
-  }
-
-  #reviews-list {
-    max-height: 400px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-  }
-
-  .review-card {
-    background: #1a1a1a;
-    border: 1px solid #333;
-    border-radius: 8px;
-    padding: 15px;
+  .card-footer {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-  }
+    align-items: center;
+    padding: 16px 24px;
+    background: #06060a;
+    border-top: 1px solid #1a1a2e;
+    border-bottom-left-radius: 16px;
+    border-bottom-right-radius: 16px;
 
-  .review-info h3 {
-    color: #007bff;
-    margin: 0 0 8px 0;
-    font-size: 18px;
-  }
+    .hours-logged {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #4a4a6a;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
 
-  .review-info p {
-    color: #ccc;
-    margin: 4px 0;
-    font-size: 13px;
-  }
+      svg { width: 16px; height: 16px; }
+    }
 
-  .review-actions {
-    display: flex;
-    gap: 8px;
-  }
+    .recommendation {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      padding: 6px 12px;
+      border-radius: 4px;
 
-  .edit-btn, .delete-btn {
-    background: transparent;
-    border: 1px solid;
-    border-radius: 6px;
-    padding: 8px 12px;
-    cursor: pointer;
-    font-size: 16px;
-    transition: background-color 0.3s ease;
-  }
+      svg { width: 16px; height: 16px; }
 
-  .edit-btn {
-    border-color: #007bff;
-    color: #007bff;
-  }
+      &.yes {
+        color: #00e5ff;
+        background: rgba(0, 229, 255, 0.1);
+        border: 1px solid rgba(0, 229, 255, 0.2);
+      }
 
-  .edit-btn:hover {
-    background: #007bff;
-    color: #161616;
-  }
-
-  .delete-btn {
-    border-color: #dc3545;
-    color: #dc3545;
-  }
-
-  .delete-btn:hover {
-    background: #dc3545;
-    color: #161616;
-  }
-`;
-
-const ModalOverlay = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
-  display: grid;
-  place-items: center;
-  z-index: 1000;
-`;
-
-const ModalContent = styled.div`
-  background: #161616;
-  padding: 30px;
-  border-radius: 10px;
-  width: 90%;
-  max-width: 400px;
-  box-shadow: 0px 15px 60px #007bff;
-  outline: 1px solid #007bff;
-
-  h2 {
-    color: #007bff;
-    text-align: center;
-    margin-top: 0;
-    margin-bottom: 20px;
-  }
-
-  form {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  input, select, textarea {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #333;
-    border-radius: 8px;
-    background: #1a1a1a;
-    color: white;
-    font-size: 14px;
-    box-sizing: border-box;
-    font-family: inherit;
-  }
-
-  textarea {
-    resize: vertical;
-  }
-
-  input:focus, select:focus, textarea:focus {
-    outline: 1px solid #007bff;
-    border-color: #007bff;
-  }
-
-  .modal-buttons {
-    display: flex;
-    gap: 10px;
-    margin-top: 10px;
-  }
-
-  .save-btn, .cancel-btn {
-    flex: 1;
-    padding: 12px;
-    border: 1px solid;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-  }
-
-  .save-btn {
-    background: #007bff;
-    color: white;
-    border-color: #007bff;
-  }
-
-  .save-btn:hover {
-    background: #0056b3;
-  }
-
-  .cancel-btn {
-    background: transparent;
-    color: #dc3545;
-    border-color: #dc3545;
-  }
-
-  .cancel-btn:hover {
-    background: #dc3545;
-    color: white;
+      &.no {
+        color: #ff0055;
+        background: rgba(255, 0, 85, 0.1);
+        border: 1px solid rgba(255, 0, 85, 0.2);
+      }
+    }
   }
 `;
