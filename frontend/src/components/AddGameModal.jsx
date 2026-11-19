@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
-import { buscarCatalogo } from '../api'; // Importamos la conexión a RAWG
+import { buscarCatalogo } from '../api';
 
-// Lista por defecto cuando el buscador está vacío
 const POPULAR_GAMES = [
   { id: 540, title: 'Overwatch 2', genre: 'Shooter', platform: 'PC', thumbnail: 'https://www.freetogame.com/g/540/thumbnail.jpg' },
   { id: 516, title: 'PUBG: BATTLEGROUNDS', genre: 'Shooter', platform: 'PC', thumbnail: 'https://www.freetogame.com/g/516/thumbnail.jpg' },
-  { id: 475, title: 'Genshin Impact', genre: 'Action RPG', platform: 'PC', thumbnail: 'https://www.freetogame.com/g/475/thumbnail.jpg' },
-  { id: 523, title: 'Fall Guys', genre: 'Battle Royale', platform: 'PC', thumbnail: 'https://www.freetogame.com/g/523/thumbnail.jpg' }
+  { id: 475, title: 'Genshin Impact', genre: 'Action RPG', platform: 'PC', thumbnail: 'https://www.freetogame.com/g/475/thumbnail.jpg' }
 ];
 
 export default function AddGameModal({ isOpen, onClose, onGameAdded }) {
@@ -14,7 +12,6 @@ export default function AddGameModal({ isOpen, onClose, onGameAdded }) {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Reiniciar la lista cuando se abre el modal
   useEffect(() => {
     if (isOpen) {
       setGames(POPULAR_GAMES);
@@ -24,7 +21,6 @@ export default function AddGameModal({ isOpen, onClose, onGameAdded }) {
 
   const handleSearch = async (e) => {
     e.preventDefault();
-    
     if (!search.trim()) {
       setGames(POPULAR_GAMES);
       return;
@@ -32,18 +28,16 @@ export default function AddGameModal({ isOpen, onClose, onGameAdded }) {
 
     setLoading(true);
     try {
-      // Llamamos a RAWG a través de tu backend
       const res = await buscarCatalogo(search);
       const resultadosRAWG = res.data.data || [];
       
-      // Adaptamos los datos de RAWG para que encajen en las tarjetas de tu modal
       const juegosAdaptados = resultadosRAWG.map(j => ({
         id: j.id_externo,
         title: j.nombre,
-        genre: j.generos[0] || 'Varios', // Toma el primer género
-        platform: j.plataformas[0] || 'PC', // Toma la primera plataforma
+        genre: j.generos[0] || 'Varios',
+        platform: j.plataformas[0] || 'PC',
         thumbnail: j.imagen,
-        rawg_data: j // Guardamos toda la info por si la necesitamos al agregar
+        rawg_data: j
       }));
 
       setGames(juegosAdaptados);
@@ -57,8 +51,10 @@ export default function AddGameModal({ isOpen, onClose, onGameAdded }) {
   const handleAddClick = (e, game) => {
     e.preventDefault();
     e.stopPropagation();
-    onGameAdded(game);
-    onClose();
+    // Alerta temporal hasta que conectemos el backend
+    alert(`Preparando para guardar: ${game.title}`);
+    // onGameAdded(game);
+    // onClose();
   };
 
   if (!isOpen) return null;
@@ -67,62 +63,58 @@ export default function AddGameModal({ isOpen, onClose, onGameAdded }) {
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         
-        {/* Cabecera */}
         <div style={styles.header}>
-          <h2 style={{ color: '#007bff', margin: 0, fontSize: '20px', fontWeight: 'bold' }}>
-            Catálogo Mundial RAWG
+          <h2 style={{ color: '#fff', margin: 0, fontSize: '20px', fontWeight: 'bold' }}>
+            Añadir Juego
           </h2>
           <button type="button" onClick={onClose} style={styles.closeBtn}>✕</button>
         </div>
 
-        {/* Buscador */}
         <form onSubmit={handleSearch} style={styles.searchBox}>
           <div style={{ display: 'flex', gap: '10px' }}>
             <input
               type="text"
-              placeholder="Buscar cualquier juego (Ej: Elden Ring, Minecraft)..."
+              placeholder="Buscar (Ej: Counter Strike, Elden Ring)..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={styles.input}
             />
             <button type="submit" style={styles.searchBtn} disabled={loading}>
-              🔍
+              {loading ? '...' : '🔍'}
             </button>
           </div>
         </form>
 
-        {/* Tarjetas de Juegos */}
-        <div style={styles.grid}>
+        {/* LISTA HORIZONTAL */}
+        <div style={styles.listContainer}>
           {loading ? (
-            <p style={{ color: '#007bff', textAlign: 'center', gridColumn: '1 / -1', padding: '40px 0' }}>
-              Buscando en RAWG...
-            </p>
+            <p style={{ color: '#007bff', textAlign: 'center', padding: '40px 0' }}>Buscando...</p>
           ) : games.length === 0 ? (
-            <p style={{ color: '#888', textAlign: 'center', gridColumn: '1 / -1', padding: '40px 0' }}>
-              No se encontraron juegos con ese título
-            </p>
+            <p style={{ color: '#888', textAlign: 'center', padding: '40px 0' }}>No se encontraron juegos.</p>
           ) : (
             games.map((game) => (
-              <div key={game.id} style={styles.card}>
+              <div key={game.id} style={styles.cardHorizontal}>
                 <img 
                   src={game.thumbnail} 
                   alt={game.title} 
                   style={styles.image}
                   onError={(e) => {
-                    e.target.src = 'https://via.placeholder.com/300x160?text=Sin+Imagen';
+                    e.target.src = 'https://via.placeholder.com/250x140?text=Sin+Imagen';
                   }}
                 />
+                
                 <div style={styles.cardContent}>
-                  <div>
-                    <h3 style={styles.cardTitle} title={game.title}>{game.title}</h3>
-                    <span style={styles.genreBadge}>{game.genre}</span>
-                  </div>
+                  <h3 style={styles.cardTitle} title={game.title}>{game.title}</h3>
+                  <span style={styles.genreText}>{game.genre} • {game.platform}</span>
+                </div>
+
+                <div style={styles.actionArea}>
                   <button
                     type="button"
                     onClick={(e) => handleAddClick(e, game)}
                     style={styles.addBtn}
                   >
-                    + Añadir a Mis Juegos
+                    + Añadir
                   </button>
                 </div>
               </div>
@@ -147,15 +139,15 @@ const styles = {
     padding: '16px'
   },
   modal: {
-    backgroundColor: '#141414',
-    border: '1px solid #007bff',
-    borderRadius: '12px',
+    backgroundColor: '#121212', // Fondo más oscuro
+    border: '1px solid #222',
+    borderRadius: '8px',
     width: '100%',
-    maxWidth: '850px',
+    maxWidth: '900px', // Un poco más ancho para la lista
     maxHeight: '85vh',
     display: 'flex',
     flexDirection: 'column',
-    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+    boxShadow: '0 10px 30px rgba(0,0,0,0.8)',
     color: '#fff',
     overflow: 'hidden'
   },
@@ -164,95 +156,93 @@ const styles = {
     borderBottom: '1px solid #222',
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center'
+    alignItems: 'center',
+    backgroundColor: '#161616'
   },
   closeBtn: {
     background: 'none',
     border: 'none',
-    color: '#aaa',
+    color: '#888',
     fontSize: '20px',
     cursor: 'pointer'
   },
   searchBox: {
     padding: '16px',
-    borderBottom: '1px solid #222'
+    borderBottom: '1px solid #222',
+    backgroundColor: '#161616'
   },
   input: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#0a0a0a',
     color: '#fff',
     border: '1px solid #333',
-    borderRadius: '8px',
+    borderRadius: '4px',
     padding: '12px 14px',
     fontSize: '14px',
     outline: 'none',
-    boxSizing: 'border-box'
   },
   searchBtn: {
-    backgroundColor: '#007bff',
+    backgroundColor: '#333',
     color: 'white',
-    border: 'none',
-    borderRadius: '8px',
+    border: '1px solid #444',
+    borderRadius: '4px',
     padding: '0 20px',
-    cursor: 'pointer'
+    cursor: 'pointer',
+    transition: 'background 0.2s'
   },
-  grid: {
+  listContainer: {
     padding: '20px',
     overflowY: 'auto',
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-    gap: '16px',
-    alignContent: 'start'
-  },
-  card: {
-    backgroundColor: '#1a1a2e',
-    border: '1px solid #252542',
-    borderRadius: '8px',
-    overflow: 'hidden',
     display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'space-between'
+    flexDirection: 'column', // ACÁ ESTÁ LA MAGIA DE LA LISTA HORIZONTAL
+    gap: '12px'
+  },
+  cardHorizontal: {
+    backgroundColor: '#161616',
+    border: '1px solid #2a2a2a',
+    borderRadius: '6px',
+    overflow: 'hidden',
+    display: 'flex', // Elementos uno al lado del otro
+    transition: 'border-color 0.2s',
   },
   image: {
-    width: '100%',
-    height: '130px',
+    width: '240px', // Apaisada como en tu foto
+    height: '135px',
     objectFit: 'cover',
-    pointerEvents: 'none'
+    borderRight: '1px solid #2a2a2a'
   },
   cardContent: {
-    padding: '12px',
-    flex: 1,
+    padding: '16px',
+    flex: 1, // Ocupa el espacio del medio
     display: 'flex',
     flexDirection: 'column',
-    justifyContent: 'space-between'
+    justifyContent: 'center'
   },
   cardTitle: {
     color: '#fff',
-    fontSize: '14px',
+    fontSize: '18px',
     fontWeight: 'bold',
-    margin: '0 0 6px 0',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis'
+    margin: '0 0 8px 0',
   },
-  genreBadge: {
-    fontSize: '11px',
-    color: '#007bff',
-    backgroundColor: 'rgba(0, 123, 255, 0.15)',
-    padding: '2px 8px',
-    borderRadius: '4px',
-    display: 'inline-block'
+  genreText: {
+    fontSize: '13px',
+    color: '#aaa',
+  },
+  actionArea: {
+    padding: '20px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   addBtn: {
-    marginTop: '12px',
-    width: '100%',
-    backgroundColor: '#007bff',
+    backgroundColor: '#28a745', // Botón verde
     color: '#fff',
     border: 'none',
-    fontSize: '12px',
-    fontWeight: '600',
-    padding: '10px 0',
-    borderRadius: '6px',
-    cursor: 'pointer'
+    fontSize: '14px',
+    fontWeight: 'bold',
+    padding: '10px 24px',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap'
   }
 };
