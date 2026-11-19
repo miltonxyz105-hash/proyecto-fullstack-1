@@ -136,23 +136,23 @@ const styles = {
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
-    padding: '16px'
+    padding: '20px'
   },
   modal: {
-    backgroundColor: '#121212', // Fondo más oscuro
-    border: '1px solid #222',
-    borderRadius: '8px',
+    backgroundColor: '#121212',
+    border: '1px solid #333',
+    borderRadius: '12px',
     width: '100%',
-    maxWidth: '900px', // Un poco más ancho para la lista
+    maxWidth: '1000px', // Más ancho para que respire
     maxHeight: '85vh',
     display: 'flex',
     flexDirection: 'column',
-    boxShadow: '0 10px 30px rgba(0,0,0,0.8)',
+    boxShadow: '0 15px 50px rgba(0,0,0,0.9)',
     color: '#fff',
     overflow: 'hidden'
   },
   header: {
-    padding: '20px',
+    padding: '24px',
     borderBottom: '1px solid #222',
     display: 'flex',
     justifyContent: 'space-between',
@@ -163,11 +163,11 @@ const styles = {
     background: 'none',
     border: 'none',
     color: '#888',
-    fontSize: '20px',
+    fontSize: '24px',
     cursor: 'pointer'
   },
   searchBox: {
-    padding: '16px',
+    padding: '20px 24px',
     borderBottom: '1px solid #222',
     backgroundColor: '#161616'
   },
@@ -176,73 +176,81 @@ const styles = {
     backgroundColor: '#0a0a0a',
     color: '#fff',
     border: '1px solid #333',
-    borderRadius: '4px',
-    padding: '12px 14px',
-    fontSize: '14px',
+    borderRadius: '6px',
+    padding: '16px',
+    fontSize: '16px',
     outline: 'none',
   },
   searchBtn: {
-    backgroundColor: '#333',
+    backgroundColor: '#007bff', // Azul para destacar la búsqueda
     color: 'white',
-    border: '1px solid #444',
-    borderRadius: '4px',
-    padding: '0 20px',
+    border: 'none',
+    borderRadius: '6px',
+    padding: '0 25px',
+    fontSize: '18px',
     cursor: 'pointer',
-    transition: 'background 0.2s'
+    fontWeight: 'bold'
   },
   listContainer: {
-    padding: '20px',
+    padding: '24px',
     overflowY: 'auto',
     display: 'flex',
-    flexDirection: 'column', // ACÁ ESTÁ LA MAGIA DE LA LISTA HORIZONTAL
-    gap: '12px'
+    flexDirection: 'column',
+    gap: '20px' // Mucho más espacio entre cada juego
   },
   cardHorizontal: {
-    backgroundColor: '#161616',
-    border: '1px solid #2a2a2a',
-    borderRadius: '6px',
+    backgroundColor: '#1a1a1a',
+    border: '1px solid #333',
+    borderRadius: '10px',
     overflow: 'hidden',
-    display: 'flex', // Elementos uno al lado del otro
-    transition: 'border-color 0.2s',
+    display: 'flex',
+    alignItems: 'stretch',
+    minHeight: '160px', // ESTO EVITA QUE SE APLASTEN
+    boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
   },
   image: {
-    width: '240px', // Apaisada como en tu foto
-    height: '135px',
-    objectFit: 'cover',
-    borderRight: '1px solid #2a2a2a'
+    width: '280px', // Portada más grande
+    minWidth: '280px', // Evita que se encoja la imagen
+    height: '160px',
+    objectFit: 'cover', // Mantiene la proporción sin deformar
+    borderRight: '1px solid #333'
   },
   cardContent: {
-    padding: '16px',
-    flex: 1, // Ocupa el espacio del medio
+    padding: '20px 24px',
+    flex: 1,
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center'
   },
   cardTitle: {
     color: '#fff',
-    fontSize: '18px',
+    fontSize: '24px', // Letra mucho más grande
     fontWeight: 'bold',
-    margin: '0 0 8px 0',
+    margin: '0 0 10px 0',
+    lineHeight: '1.2'
   },
   genreText: {
-    fontSize: '13px',
+    fontSize: '15px',
     color: '#aaa',
   },
   actionArea: {
-    padding: '20px',
+    padding: '24px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    borderLeft: '1px solid #222', // Separador sutil para el botón
+    backgroundColor: '#161616'
   },
   addBtn: {
-    backgroundColor: '#28a745', // Botón verde
+    backgroundColor: '#28a745',
     color: '#fff',
     border: 'none',
-    fontSize: '14px',
+    fontSize: '18px', // Botón más grande
     fontWeight: 'bold',
-    padding: '10px 24px',
-    borderRadius: '4px',
+    padding: '14px 30px',
+    borderRadius: '8px',
     cursor: 'pointer',
-    whiteSpace: 'nowrap'
+    whiteSpace: 'nowrap',
+    boxShadow: '0 4px 15px rgba(40, 167, 69, 0.3)'
   }
 };
