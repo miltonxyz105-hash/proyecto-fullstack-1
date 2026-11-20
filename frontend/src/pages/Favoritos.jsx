@@ -1,34 +1,46 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
+import { getMisFavoritos, eliminarFavorito } from '../api';
 
-export default function Favorites() {
-  // Datos de ejemplo para tus favoritos
-  const favoriteGames = [
-    {
-      id: 1,
-      title: 'The Witcher 3: Wild Hunt',
-      genre: 'RPG',
-      platform: 'PC',
-      image: 'https://www.freetogame.com/g/475/thumbnail.jpg', // URL de ejemplo
-      rating: '9.8',
-    },
-    {
-      id: 2,
-      title: 'Cyberpunk 2077',
-      genre: 'Action RPG',
-      platform: 'Steam',
-      image: 'https://www.freetogame.com/g/540/thumbnail.jpg',
-      rating: '9.5',
-    },
-    {
-      id: 3,
-      title: 'Red Dead Redemption 2',
-      genre: 'Aventura',
-      platform: 'PS5',
-      image: 'https://www.freetogame.com/g/516/thumbnail.jpg',
-      rating: '9.9',
+export default function Favoritos() {
+  const navigate = useNavigate();
+  const [favoriteGames, setFavoriteGames] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    cargarFavoritos();
+  }, []);
+
+  const cargarFavoritos = async () => {
+    try {
+      setLoading(true);
+      const res = await getMisFavoritos();
+      const lista = Array.isArray(res.data) ? res.data : res.data?.data || [];
+      setFavoriteGames(lista);
+    } catch (error) {
+      console.error('Error al cargar tus favoritos:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  const handleQuitarFavorito = async (juegoId, titulo) => {
+    if (!window.confirm(`¿Quitar "${titulo}" de tus favoritos?`)) return;
+
+    try {
+      await eliminarFavorito(juegoId);
+      setFavoriteGames((prev) =>
+        prev.filter((item) => {
+          const idActual = item.juego_id || item.juegos?.id || item.id;
+          return idActual !== juegoId;
+        })
+      );
+    } catch (error) {
+      console.error('Error al quitar favorito:', error);
+      alert('No se pudo quitar de favoritos.');
+    }
+  };
 
   return (
     <FavoritesWrapper>
@@ -45,37 +57,66 @@ export default function Favorites() {
         </div>
       </Header>
 
-      <FavGrid>
-        {favoriteGames.map((game) => (
-          <FavCard key={game.id}>
-            <div className="image-wrapper">
-              <img src={game.image} alt={game.title} onError={(e) => { e.target.src = 'https://via.placeholder.com/400x200/111/007bff?text=Sin+Imagen'; }} />
-              <div className="overlay"></div>
-              <HeartIcon className="active">
-                <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                </svg>
-              </HeartIcon>
-              <div className="rating-badge">
-                <span className="star">★</span> {game.rating}
-              </div>
-            </div>
+      {loading ? (
+        <EmptyState>Cargando tu vitrina de favoritos...</EmptyState>
+      ) : favoriteGames.length === 0 ? (
+        <EmptyState>
+          Todavía no marcaste ningún juego como favorito. Explorá tu biblioteca en <strong>Mis Juegos</strong> para destacar tus preferidos.
+        </EmptyState>
+      ) : (
+        <FavGrid>
+          {favoriteGames.map((item) => {
+            // Soporta tanto respuesta anidada de Supabase (item.juegos) como plana
+            const juego = item.juegos || item;
+            const juegoId = item.juego_id || juego.id;
+            const titulo = juego.nombre || juego.title || 'Sin título';
+            const genero = juego.genero || juego.generos || juego.genre || 'Varios';
+            const plataforma = juego.plataforma || juego.platform || 'PC';
+            const imagen = juego.imagen || juego.image || 'https://via.placeholder.com/400x200/111/007bff?text=Sin+Imagen';
+            const rating = juego.rating || juego.calificacion || juego.puntuacion || '★';
 
-            <div className="card-info">
-              <h2>{game.title}</h2>
-              <div className="tags">
-                <span className="tag genre">{game.genre}</span>
-                <span className="tag platform">{game.platform}</span>
-              </div>
-              
-              <PlayButton>
-                <div className="btn-bg"></div>
-                <span className="btn-text">VER DETALLES</span>
-              </PlayButton>
-            </div>
-          </FavCard>
-        ))}
-      </FavGrid>
+            return (
+              <FavCard key={item.id || juegoId}>
+                <div className="image-wrapper">
+                  <img
+                    src={imagen}
+                    alt={titulo}
+                    onError={(e) => {
+                      e.target.src = 'https://via.placeholder.com/400x200/111/007bff?text=Sin+Imagen';
+                    }}
+                  />
+                  <div className="overlay"></div>
+                  <HeartIcon
+                    className="active"
+                    title="Quitar de favoritos"
+                    onClick={() => handleQuitarFavorito(juegoId, titulo)}
+                  >
+                    <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                    </svg>
+                  </HeartIcon>
+                  <div className="rating-badge">
+                    <span className="star">★</span> {rating}
+                  </div>
+                </div>
+
+                <div className="card-info">
+                  <h2>{titulo}</h2>
+                  <div className="tags">
+                    <span className="tag genre">{genero}</span>
+                    <span className="tag platform">{plataforma}</span>
+                  </div>
+                  
+                  <PlayButton onClick={() => navigate('/juegos')}>
+                    <div className="btn-bg"></div>
+                    <span className="btn-text">VER EN BIBLIOTECA</span>
+                  </PlayButton>
+                </div>
+              </FavCard>
+            );
+          })}
+        </FavGrid>
+      )}
     </FavoritesWrapper>
   );
 }
@@ -89,14 +130,10 @@ const heartbeat = keyframes`
   70% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(255, 0, 85, 0.5)); }
 `;
 
-const slideUpGlow = keyframes`
-  0% { background-position: 0% 100%; }
-  100% { background-position: 0% 0%; }
-`;
-
 // --- ESTILOS ---
 const FavoritesWrapper = styled.div`
   width: 100%;
+  box-sizing: border-box;
   min-height: 100vh;
   background-color: #040406;
   padding: 40px 60px;
@@ -114,6 +151,20 @@ const FavoritesWrapper = styled.div`
       linear-gradient(to bottom, rgba(0, 123, 255, 0.03) 1px, transparent 1px);
     background-size: 40px 40px;
     mask-image: radial-gradient(circle at top left, black, transparent 80%);
+  }
+`;
+
+const EmptyState = styled.div`
+  text-align: center;
+  padding: 60px 20px;
+  color: #6a6a8a;
+  border: 1px dashed #1a1a2e;
+  border-radius: 16px;
+  background: rgba(10, 10, 20, 0.4);
+  font-size: 16px;
+
+  strong {
+    color: #ff0055;
   }
 `;
 
@@ -285,7 +336,7 @@ const FavCard = styled.div`
   }
 `;
 
-const HeartIcon = styled.div`
+const HeartIcon = styled.button`
   position: absolute;
   top: 16px;
   right: 16px;
@@ -300,6 +351,7 @@ const HeartIcon = styled.div`
   align-items: center;
   cursor: pointer;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0;
 
   svg {
     width: 20px;
@@ -311,6 +363,11 @@ const HeartIcon = styled.div`
   &.active svg {
     color: #ff0055;
     animation: ${heartbeat} 2s infinite;
+  }
+
+  &:hover {
+    border-color: #ff0055;
+    transform: scale(1.1);
   }
 `;
 

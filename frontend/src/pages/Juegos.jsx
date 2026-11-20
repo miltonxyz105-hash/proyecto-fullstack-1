@@ -1,88 +1,371 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
+import {
+  getJuegos,
+  createJuego,
+  updateJuego,
+  deleteJuego,
+  agregarFavorito,
+} from '../api';
 
-export default function GamesLibrary() {
+const INITIAL_FORM = {
+  nombre: '',
+  plataforma: 'PC',
+  genero: '',
+  estado: 'JUGANDO',
+  horas: 0,
+  progreso: 0,
+  imagen: '',
+  platinado: false,
+};
+
+export default function Juegos() {
+  const [libraryGames, setLibraryGames] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('TODOS');
+  const [searchTerm, setSearchTerm] = useState('');
 
-  // Datos de ejemplo para tu biblioteca entera
-  const libraryGames = [
-    { id: 1, title: 'Elden Ring', platform: 'Steam', genre: 'RPG', status: 'JUGANDO', cover: 'https://www.freetogame.com/g/540/thumbnail.jpg' },
-    { id: 2, title: 'Halo Infinite', platform: 'Xbox', genre: 'Shooter', status: 'COMPLETADO', cover: 'https://www.freetogame.com/g/516/thumbnail.jpg' },
-    { id: 3, title: 'God of War', platform: 'PS5', genre: 'Acción', status: 'COMPLETADO', cover: 'https://www.freetogame.com/g/475/thumbnail.jpg' },
-    { id: 4, title: 'Hollow Knight', platform: 'Steam', genre: 'Metroidvania', status: 'PENDIENTE', cover: 'https://via.placeholder.com/300x400/1a1a2e/00e5ff?text=Hollow+Knight' },
-    { id: 5, title: 'Valorant', platform: 'PC', genre: 'Shooter', status: 'JUGANDO', cover: 'https://via.placeholder.com/300x400/1a1a2e/00e5ff?text=Valorant' },
-  ];
+  // Estados para el modal de Crear / Editar
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [formData, setFormData] = useState(INITIAL_FORM);
+  const [saving, setSaving] = useState(false);
 
   const filters = ['TODOS', 'JUGANDO', 'COMPLETADO', 'PENDIENTE'];
 
-  const filteredGames = activeFilter === 'TODOS' 
-    ? libraryGames 
-    : libraryGames.filter(game => game.status === activeFilter);
+  useEffect(() => {
+    cargarBiblioteca();
+  }, []);
+
+  const cargarBiblioteca = async () => {
+    try {
+      setLoading(true);
+      const res = await getJuegos();
+      const lista = Array.isArray(res.data) ? res.data : res.data?.data || [];
+      setLibraryGames(lista);
+    } catch (error) {
+      console.error('Error al cargar la biblioteca:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filtrado por estado y búsqueda local
+  const filteredGames = libraryGames.filter((game) => {
+    const estado = (game.estado || game.status || 'PENDIENTE').toUpperCase();
+    const titulo = (game.nombre || game.title || '').toLowerCase();
+    const coincideEstado = activeFilter === 'TODOS' || estado === activeFilter;
+    const coincideBusqueda = titulo.includes(searchTerm.toLowerCase());
+    return coincideEstado && coincideBusqueda;
+  });
+
+  // Abrir modal para crear
+  const handleAbrirCrear = () => {
+    setEditingId(null);
+    setFormData(INITIAL_FORM);
+    setModalOpen(true);
+  };
+
+  // Abrir modal para editar
+  const handleAbrirEditar = (game) => {
+    setEditingId(game.id);
+    setFormData({
+      nombre: game.nombre || game.title || '',
+      plataforma: game.plataforma || game.platform || 'PC',
+      genero: game.genero || game.generos || game.genre || '',
+      estado: (game.estado || game.status || 'JUGANDO').toUpperCase(),
+      horas: game.horas ?? game.hours ?? 0,
+      progreso: game.progreso ?? game.progress ?? 0,
+      imagen: game.imagen || game.cover || '',
+      platinado: Boolean(game.platinado),
+    });
+    setModalOpen(true);
+  };
+
+  // Guardar (Crear o Actualizar)
+  const handleGuardarJuego = async (e) => {
+    e.preventDefault();
+    if (!formData.nombre.trim()) return;
+
+    try {
+      setSaving(true);
+      const payload = {
+        ...formData,
+        horas: Number(formData.horas) || 0,
+        progreso: Math.min(100, Math.max(0, Number(formData.progreso) || 0)),
+      };
+
+      if (editingId) {
+        const res = await updateJuego(editingId, payload);
+        const actualizado = res.data?.data || res.data || { id: editingId, ...payload };
+        setLibraryGames((prev) =>
+          prev.map((g) => (g.id === editingId ? { ...g, ...actualizado } : g))
+        );
+      } else {
+        const res = await createJuego(payload);
+        const nuevo = res.data?.data || res.data;
+        if (nuevo && nuevo.id) {
+          setLibraryGames((prev) => [nuevo, ...prev]);
+        } else {
+          await cargarBiblioteca();
+        }
+      }
+
+      setModalOpen(false);
+      setFormData(INITIAL_FORM);
+      setEditingId(null);
+    } catch (error) {
+      console.error('Error al guardar el juego:', error);
+      alert('No se pudo guardar el juego. Revisá los campos o tu sesión.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAgregarFavorito = async (game) => {
+    try {
+      await agregarFavorito({ juego_id: game.id });
+      alert(`"${game.nombre || game.title}" agregado a tus favoritos.`);
+    } catch (error) {
+      console.error('Error al agregar a favoritos:', error);
+      alert('No se pudo agregar a favoritos (puede que ya esté agregado).');
+    }
+  };
+
+  const handleEliminar = async (id, titulo) => {
+    if (!window.confirm(`¿Eliminar "${titulo}" definitivamente de tu biblioteca?`)) return;
+
+    try {
+      await deleteJuego(id);
+      setLibraryGames((prev) => prev.filter((g) => g.id !== id));
+    } catch (error) {
+      console.error('Error al eliminar juego:', error);
+      alert('No se pudo eliminar el juego.');
+    }
+  };
 
   return (
     <LibraryWrapper>
       <div className="bg-grid"></div>
 
       <Header>
-        <div className="title-area">
-          <h1>Mi Biblioteca</h1>
-          <p>Explora tu colección completa de {libraryGames.length} juegos</p>
+        <div className="top-row">
+          <div className="title-area">
+            <h1>Mi Biblioteca</h1>
+            <p>Explora tu colección completa de {libraryGames.length} juegos</p>
+          </div>
+
+          <CreateButton onClick={handleAbrirCrear}>
+            + AGREGAR JUEGO MANUAL
+          </CreateButton>
         </div>
 
-        <FilterContainer>
-          {filters.map(filter => (
-            <FilterButton 
-              key={filter} 
-              className={activeFilter === filter ? 'active' : ''}
-              onClick={() => setActiveFilter(filter)}
-            >
-              {filter}
-              {activeFilter === filter && <div className="glow-line"></div>}
-            </FilterButton>
-          ))}
-        </FilterContainer>
+        <ControlsRow>
+          <FilterContainer>
+            {filters.map((filter) => (
+              <FilterButton
+                key={filter}
+                className={activeFilter === filter ? 'active' : ''}
+                onClick={() => setActiveFilter(filter)}
+              >
+                {filter}
+                {activeFilter === filter && <div className="glow-line"></div>}
+              </FilterButton>
+            ))}
+          </FilterContainer>
+
+          <SearchInput
+            type="text"
+            placeholder="Filtrar por nombre..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </ControlsRow>
       </Header>
 
-      <LibraryGrid>
-        {filteredGames.map(game => (
-          <GamePoster key={game.id}>
-            <div className="poster-image">
-              <img src={game.cover} alt={game.title} />
-              <div className="scanlines"></div>
-            </div>
-            
-            <div className="status-badge" data-status={game.status}>
-              {game.status}
-            </div>
+      {loading ? (
+        <div className="empty-state">Sincronizando biblioteca con el servidor...</div>
+      ) : (
+        <LibraryGrid>
+          {filteredGames.map((game) => {
+            const titulo = game.nombre || game.title || 'Sin título';
+            const plataforma = game.plataforma || game.platform || 'PC';
+            const genero = game.genero || game.generos || game.genre || 'Varios';
+            const estado = (game.estado || game.status || 'PENDIENTE').toUpperCase();
+            const cover =
+              game.imagen ||
+              game.cover ||
+              `https://via.placeholder.com/300x400/1a1a2e/00e5ff?text=${encodeURIComponent(titulo)}`;
 
-            <div className="info-overlay">
-              <div className="content">
-                <h3>{game.title}</h3>
-                <div className="tags">
-                  <span className="tag">{game.platform}</span>
-                  <span className="tag dot">•</span>
-                  <span className="tag">{game.genre}</span>
+            return (
+              <GamePoster key={game.id}>
+                <div className="poster-image">
+                  <img
+                    src={cover}
+                    alt={titulo}
+                    onError={(e) => {
+                      e.target.src = `https://via.placeholder.com/300x400/1a1a2e/00e5ff?text=${encodeURIComponent(titulo)}`;
+                    }}
+                  />
+                  <div className="scanlines"></div>
                 </div>
-                
-                <div className="action-buttons">
-                  <button className="play-btn">
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                    </svg>
-                  </button>
-                  <button className="more-btn">•••</button>
+
+                <div className="status-badge" data-status={estado}>
+                  {estado}
+                </div>
+
+                <div className="info-overlay">
+                  <div className="content">
+                    <h3>{titulo}</h3>
+                    <div className="tags">
+                      <span className="tag">{plataforma}</span>
+                      <span className="tag dot">•</span>
+                      <span className="tag">{genero}</span>
+                    </div>
+
+                    <div className="action-buttons">
+                      <button
+                        className="play-btn"
+                        title="Editar juego"
+                        onClick={() => handleAbrirEditar(game)}
+                      >
+                        EDITAR
+                      </button>
+                      <button
+                        className="fav-btn"
+                        title="Agregar a Favoritos"
+                        onClick={() => handleAgregarFavorito(game)}
+                      >
+                        ♥
+                      </button>
+                      <button
+                        className="del-btn"
+                        title="Eliminar juego"
+                        onClick={() => handleEliminar(game.id, titulo)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </GamePoster>
+            );
+          })}
+
+          {filteredGames.length === 0 && (
+            <div className="empty-state">
+              No se encontraron juegos en esta categoría.
+            </div>
+          )}
+        </LibraryGrid>
+      )}
+
+      {/* MODAL CYBERPUNK PARA CREAR / EDITAR JUEGO */}
+      {modalOpen && (
+        <ModalOverlay onClick={() => setModalOpen(false)}>
+          <ModalBox onClick={(e) => e.stopPropagation()}>
+            <h2>{editingId ? 'Editar Registro' : 'Nuevo Juego Manual'}</h2>
+
+            <form onSubmit={handleGuardarJuego}>
+              <div className="field">
+                <label>Nombre del juego *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.nombre}
+                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                  placeholder="Ej: Elden Ring"
+                />
+              </div>
+
+              <div className="row-2">
+                <div className="field">
+                  <label>Plataforma</label>
+                  <input
+                    type="text"
+                    value={formData.plataforma}
+                    onChange={(e) => setFormData({ ...formData, plataforma: e.target.value })}
+                    placeholder="Steam, PS5, Xbox..."
+                  />
+                </div>
+
+                <div className="field">
+                  <label>Género</label>
+                  <input
+                    type="text"
+                    value={formData.genero}
+                    onChange={(e) => setFormData({ ...formData, genero: e.target.value })}
+                    placeholder="RPG, Shooter, Acción..."
+                  />
                 </div>
               </div>
-            </div>
-          </GamePoster>
-        ))}
-        
-        {filteredGames.length === 0 && (
-          <div className="empty-state">
-            No tienes juegos en esta categoría.
-          </div>
-        )}
-      </LibraryGrid>
+
+              <div className="row-3">
+                <div className="field">
+                  <label>Estado</label>
+                  <select
+                    value={formData.estado}
+                    onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
+                  >
+                    <option value="JUGANDO">JUGANDO</option>
+                    <option value="COMPLETADO">COMPLETADO</option>
+                    <option value="PENDIENTE">PENDIENTE</option>
+                  </select>
+                </div>
+
+                <div className="field">
+                  <label>Horas</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.horas}
+                    onChange={(e) => setFormData({ ...formData, horas: e.target.value })}
+                  />
+                </div>
+
+                <div className="field">
+                  <label>Progreso (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={formData.progreso}
+                    onChange={(e) => setFormData({ ...formData, progreso: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="field">
+                <label>URL de Portada (opcional)</label>
+                <input
+                  type="text"
+                  value={formData.imagen}
+                  onChange={(e) => setFormData({ ...formData, imagen: e.target.value })}
+                  placeholder="https://..."
+                />
+              </div>
+
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={formData.platinado}
+                  onChange={(e) => setFormData({ ...formData, platinado: e.target.checked })}
+                />
+                <span>Juego Platinado 🏆</span>
+              </label>
+
+              <div className="modal-actions">
+                <button type="button" className="cancel" onClick={() => setModalOpen(false)}>
+                  CANCELAR
+                </button>
+                <button type="submit" className="save" disabled={saving}>
+                  {saving ? 'GUARDANDO...' : 'GUARDAR'}
+                </button>
+              </div>
+            </form>
+          </ModalBox>
+        </ModalOverlay>
+      )}
     </LibraryWrapper>
   );
 }
@@ -93,14 +376,10 @@ const fadeIn = keyframes`
   to { opacity: 1; transform: translateY(0); }
 `;
 
-const scan = keyframes`
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100%); }
-`;
-
 // --- ESTILOS ---
 const LibraryWrapper = styled.div`
   width: 100%;
+  box-sizing: border-box;
   min-height: 100vh;
   background-color: #040406;
   padding: 40px 60px;
@@ -119,13 +398,31 @@ const LibraryWrapper = styled.div`
     background-size: 40px 40px;
     mask-image: radial-gradient(circle at top, black, transparent 80%);
   }
+
+  .empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px;
+    color: #4a4a6a;
+    font-size: 18px;
+    border: 1px dashed rgba(0, 229, 255, 0.2);
+    border-radius: 16px;
+  }
 `;
 
 const Header = styled.header`
   display: flex;
   flex-direction: column;
-  gap: 30px;
+  gap: 25px;
   margin-bottom: 40px;
+
+  .top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
 
   .title-area {
     h1 {
@@ -144,6 +441,33 @@ const Header = styled.header`
       letter-spacing: 1px;
     }
   }
+`;
+
+const CreateButton = styled.button`
+  background: rgba(0, 229, 255, 0.1);
+  border: 1px solid #00e5ff;
+  color: #00e5ff;
+  padding: 12px 22px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+
+  &:hover {
+    background: #00e5ff;
+    color: #040406;
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
+  }
+`;
+
+const ControlsRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
 `;
 
 const FilterContainer = styled.div`
@@ -193,20 +517,27 @@ const FilterButton = styled.button`
   }
 `;
 
+const SearchInput = styled.input`
+  background: rgba(10, 10, 20, 0.8);
+  border: 1px solid #1a1a2e;
+  color: #fff;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 14px;
+  min-width: 240px;
+  transition: all 0.3s;
+
+  &:focus {
+    outline: none;
+    border-color: #00e5ff;
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.25);
+  }
+`;
+
 const LibraryGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 25px;
-
-  .empty-state {
-    grid-column: 1 / -1;
-    text-align: center;
-    padding: 60px;
-    color: #4a4a6a;
-    font-size: 18px;
-    border: 1px dashed rgba(0, 229, 255, 0.2);
-    border-radius: 16px;
-  }
 `;
 
 const GamePoster = styled.div`
@@ -249,7 +580,6 @@ const GamePoster = styled.div`
       transition: all 0.5s ease;
     }
 
-    /* Efecto holográfico/scanline suave */
     .scanlines {
       position: absolute;
       inset: 0;
@@ -301,8 +631,8 @@ const GamePoster = styled.div`
     bottom: 0;
     left: 0;
     right: 0;
-    height: 60%;
-    background: linear-gradient(0deg, rgba(4,4,6,1) 0%, rgba(4,4,6,0.8) 60%, transparent 100%);
+    height: 65%;
+    background: linear-gradient(0deg, rgba(4,4,6,1) 0%, rgba(4,4,6,0.88) 65%, transparent 100%);
     z-index: 3;
     display: flex;
     flex-direction: column;
@@ -324,7 +654,7 @@ const GamePoster = styled.div`
 
   h3 {
     margin: 0 0 8px 0;
-    font-size: 20px;
+    font-size: 19px;
     font-weight: 800;
     color: #fff;
     line-height: 1.2;
@@ -335,7 +665,7 @@ const GamePoster = styled.div`
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
 
     .tag {
       font-size: 11px;
@@ -352,7 +682,7 @@ const GamePoster = styled.div`
 
   .action-buttons {
     display: flex;
-    gap: 10px;
+    gap: 8px;
 
     button {
       border-radius: 8px;
@@ -361,6 +691,7 @@ const GamePoster = styled.div`
       justify-content: center;
       align-items: center;
       transition: all 0.3s;
+      font-weight: 700;
     }
 
     .play-btn {
@@ -368,31 +699,159 @@ const GamePoster = styled.div`
       background: rgba(0, 123, 255, 0.2);
       border: 1px solid #007bff;
       color: #00e5ff;
-      padding: 10px;
-      
-      svg { width: 18px; height: 18px; }
+      padding: 9px;
+      font-size: 11px;
+      letter-spacing: 1px;
 
       &:hover {
         background: #007bff;
         color: #fff;
         border-color: #00e5ff;
         box-shadow: 0 0 15px rgba(0, 123, 255, 0.5);
-        transform: scale(1.05);
       }
     }
 
-    .more-btn {
-      width: 40px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: #fff;
-      font-size: 16px;
-      letter-spacing: 1px;
+    .fav-btn {
+      width: 36px;
+      background: rgba(255, 0, 85, 0.1);
+      border: 1px solid rgba(255, 0, 85, 0.3);
+      color: #ff0055;
+      font-size: 15px;
 
       &:hover {
-        background: rgba(255, 255, 255, 0.1);
-        border-color: #fff;
+        background: #ff0055;
+        color: #fff;
       }
+    }
+
+    .del-btn {
+      width: 36px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #b0b0c0;
+      font-size: 13px;
+
+      &:hover {
+        background: #ff0055;
+        border-color: #ff0055;
+        color: #fff;
+      }
+    }
+  }
+`;
+
+// --- ESTILOS DEL MODAL ---
+const ModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(6px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+`;
+
+const ModalBox = styled.div`
+  background: #0a0a14;
+  border: 1px solid #00e5ff;
+  box-shadow: 0 0 30px rgba(0, 229, 255, 0.2);
+  border-radius: 16px;
+  padding: 30px;
+  width: 100%;
+  max-width: 500px;
+
+  h2 {
+    margin: 0 0 20px 0;
+    color: #00e5ff;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-size: 22px;
+  }
+
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .row-3 {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr 1fr;
+    gap: 12px;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    label {
+      font-size: 12px;
+      color: #8a8aa8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    input, select {
+      background: #11111f;
+      border: 1px solid #1a1a2e;
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+
+      &:focus {
+        outline: none;
+        border-color: #00e5ff;
+      }
+    }
+  }
+
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #ffd700;
+    margin-top: 4px;
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 10px;
+
+    button {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 1px;
+    }
+
+    .cancel {
+      background: transparent;
+      border: 1px solid #2a2a44;
+      color: #8a8aa8;
+      &:hover { color: #fff; border-color: #fff; }
+    }
+
+    .save {
+      background: #007bff;
+      border: 1px solid #00e5ff;
+      color: #fff;
+      &:hover { background: #00e5ff; color: #040406; }
+      &:disabled { opacity: 0.5; cursor: not-allowed; }
     }
   }
 `;

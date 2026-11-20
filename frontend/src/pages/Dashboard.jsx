@@ -1,20 +1,42 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
+import { getJuegos, deleteJuego } from '../api';
 
 export default function Dashboard() {
-  // Datos de ejemplo basados en tu captura actual
-  const mockGames = [
-    {
-      id: 1,
-      title: 'CS2',
-      genre: 'Shooter',
-      platform: 'Steam',
-      hours: 1000,
-      progress: 85, // Cambié a 85% para que veas la barra brillar
-      status: 'JUGANDO',
-      platinado: true,
+  const navigate = useNavigate();
+  const [games, setGames] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    cargarJuegos();
+  }, []);
+
+  const cargarJuegos = async () => {
+    try {
+      setLoading(true);
+      const res = await getJuegos();
+      // Soporta tanto res.data como res.data.data según cómo responda tu backend
+      const lista = Array.isArray(res.data) ? res.data : res.data?.data || [];
+      setGames(lista);
+    } catch (error) {
+      console.error('Error al cargar tus juegos:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  const handleEliminar = async (id, nombre) => {
+    if (!window.confirm(`¿Seguro que querés eliminar "${nombre}" de tu colección?`)) return;
+
+    try {
+      await deleteJuego(id);
+      setGames((prev) => prev.filter((g) => g.id !== id));
+    } catch (error) {
+      console.error('Error al eliminar juego:', error);
+      alert('No se pudo eliminar el juego. Verificá tus permisos.');
+    }
+  };
 
   return (
     <DashboardWrapper>
@@ -27,14 +49,14 @@ export default function Dashboard() {
         </div>
         
         <div className="actions">
-          <GlowButton primary>
+          <GlowButton $primary onClick={() => navigate('/catalogo')}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
             BUSCAR EN CATÁLOGO
           </GlowButton>
-          <GlowButton>
+          <GlowButton onClick={() => navigate('/juegos')}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -44,79 +66,91 @@ export default function Dashboard() {
         </div>
       </Header>
 
-      <GamesGrid>
-        {mockGames.map((game) => (
-          <GameCard key={game.id}>
-            <div className="card-header">
-              <h2>{game.title}</h2>
-              <div className="card-actions">
-                <IconButton className="edit">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                  </svg>
-                </IconButton>
-                <IconButton className="delete">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                  </svg>
-                </IconButton>
-              </div>
-            </div>
+      {loading ? (
+        <EmptyState>Cargando base de datos de juegos...</EmptyState>
+      ) : games.length === 0 ? (
+        <EmptyState>
+          Todavía no tenés juegos en tu biblioteca. Hacé clic en <strong>BUSCAR EN CATÁLOGO</strong> para agregar el primero.
+        </EmptyState>
+      ) : (
+        <GamesGrid>
+          {games.map((game) => {
+            const titulo = game.nombre || game.title || 'Sin título';
+            const genero = game.genero || game.generos || game.genre || 'Varios';
+            const plataforma = game.plataforma || game.platform || 'PC';
+            const horas = game.horas ?? game.hours ?? 0;
+            const progreso = game.progreso ?? game.progress ?? 0;
+            const estado = (game.estado || game.status || 'JUGANDO').toUpperCase();
 
-            <div className="stats-grid">
-              <div className="stat-row">
-                <span className="label">Género</span>
-                <span className="value">{game.genre}</span>
-              </div>
-              <div className="stat-row">
-                <span className="label">Plataforma</span>
-                <span className="value platform">{game.platform}</span>
-              </div>
-              <div className="stat-row">
-                <span className="label">Horas</span>
-                <span className="value">{game.hours}h</span>
-              </div>
-            </div>
-
-            <div className="progress-section">
-              <div className="progress-header">
-                <span className="label">Progreso</span>
-                <span className="value percent">{game.progress}%</span>
-              </div>
-              <div className="progress-bar-bg">
-                <div className="progress-bar-fill" style={{ width: `${game.progress}%` }}>
-                  <div className="glow-tip"></div>
+            return (
+              <GameCard key={game.id}>
+                <div className="card-header">
+                  <h2>{titulo}</h2>
+                  <div className="card-actions">
+                    <IconButton className="edit" onClick={() => navigate('/juegos')}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                      </svg>
+                    </IconButton>
+                    <IconButton className="delete" onClick={() => handleEliminar(game.id, titulo)}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      </svg>
+                    </IconButton>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            <div className="card-footer">
-              <StatusBadge status={game.status}>
-                <span className="dot"></span>
-                {game.status}
-              </StatusBadge>
-              
-              {game.platinado && (
-                <TrophyBadge>
-                  Platinado 🏆
-                </TrophyBadge>
-              )}
-            </div>
-          </GameCard>
-        ))}
-      </GamesGrid>
+                <div className="stats-grid">
+                  <div className="stat-row">
+                    <span className="label">Género</span>
+                    <span className="value">{genero}</span>
+                  </div>
+                  <div className="stat-row">
+                    <span className="label">Plataforma</span>
+                    <span className="value platform">{plataforma}</span>
+                  </div>
+                  <div className="stat-row">
+                    <span className="label">Horas</span>
+                    <span className="value">{horas}h</span>
+                  </div>
+                </div>
+
+                <div className="progress-section">
+                  <div className="progress-header">
+                    <span className="label">Progreso</span>
+                    <span className="value percent">{progreso}%</span>
+                  </div>
+                  <div className="progress-bar-bg">
+                    <div className="progress-bar-fill" style={{ width: `${progreso}%` }}>
+                      <div className="glow-tip"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="card-footer">
+                  <StatusBadge $status={estado}>
+                    <span className="dot"></span>
+                    {estado}
+                  </StatusBadge>
+                  
+                  {game.platinado && (
+                    <TrophyBadge>
+                      Platinado 🏆
+                    </TrophyBadge>
+                  )}
+                </div>
+              </GameCard>
+            );
+          })}
+        </GamesGrid>
+      )}
     </DashboardWrapper>
   );
 }
 
 // --- ANIMACIONES ---
-const scanline = keyframes`
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100vh); }
-`;
-
 const pulseGlow = keyframes`
   0% { box-shadow: 0 0 5px rgba(0, 229, 255, 0.2); }
   50% { box-shadow: 0 0 15px rgba(0, 229, 255, 0.6); }
@@ -126,6 +160,7 @@ const pulseGlow = keyframes`
 // --- ESTILOS ---
 const DashboardWrapper = styled.div`
   width: 100%;
+  box-sizing: border-box;
   min-height: 100vh;
   background-color: #040406;
   padding: 40px 60px;
@@ -134,7 +169,6 @@ const DashboardWrapper = styled.div`
   color: #fff;
   z-index: 1;
 
-  /* Patrón de cuadrícula de fondo estilo ciberpunk */
   .bg-grid {
     position: absolute;
     inset: 0;
@@ -144,6 +178,20 @@ const DashboardWrapper = styled.div`
       linear-gradient(to bottom, rgba(0, 123, 255, 0.03) 1px, transparent 1px);
     background-size: 40px 40px;
     mask-image: radial-gradient(circle at top left, black, transparent 80%);
+  }
+`;
+
+const EmptyState = styled.div`
+  text-align: center;
+  padding: 60px 20px;
+  color: #6a6a8a;
+  border: 1px dashed #1a1a2e;
+  border-radius: 16px;
+  background: rgba(10, 10, 20, 0.4);
+  font-size: 16px;
+
+  strong {
+    color: #00e5ff;
   }
 `;
 
@@ -183,9 +231,9 @@ const GlowButton = styled.button`
   display: flex;
   align-items: center;
   gap: 8px;
-  background: ${(props) => (props.primary ? 'rgba(0, 123, 255, 0.1)' : 'transparent')};
-  color: ${(props) => (props.primary ? '#00e5ff' : '#4a4a6a')};
-  border: 1px solid ${(props) => (props.primary ? '#007bff' : '#1a1a2e')};
+  background: ${(props) => (props.$primary ? 'rgba(0, 123, 255, 0.1)' : 'transparent')};
+  color: ${(props) => (props.$primary ? '#00e5ff' : '#4a4a6a')};
+  border: 1px solid ${(props) => (props.$primary ? '#007bff' : '#1a1a2e')};
   padding: 12px 24px;
   border-radius: 8px;
   font-size: 14px;
@@ -197,7 +245,7 @@ const GlowButton = styled.button`
   overflow: hidden;
 
   &:hover {
-    background: ${(props) => (props.primary ? '#007bff' : 'rgba(0, 229, 255, 0.05)')};
+    background: ${(props) => (props.$primary ? '#007bff' : 'rgba(0, 229, 255, 0.05)')};
     color: #fff;
     border-color: #00e5ff;
     box-shadow: 0 0 20px rgba(0, 123, 255, 0.4), inset 0 0 10px rgba(0, 229, 255, 0.2);

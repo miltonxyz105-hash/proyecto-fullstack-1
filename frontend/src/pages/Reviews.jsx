@@ -1,47 +1,140 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
+import {
+  getMisReviews,
+  getJuegos,
+  createReview,
+  updateReview,
+  deleteReview,
+} from '../api';
+
+const INITIAL_FORM = {
+  juego_id: '',
+  puntaje: 5,
+  texto: '',
+};
 
 export default function Reviews() {
-  // Datos de ejemplo para tus reseñas
-  const reviewsData = [
-    {
-      id: 1,
-      gameTitle: 'Cyberpunk 2077',
-      image: 'https://www.freetogame.com/g/540/thumbnail.jpg',
-      score: 9.5,
-      date: '15/10/2026',
-      hoursPlayed: 120,
-      recommended: true,
-      text: "Después de todas las actualizaciones, la ciudad de Night City se siente más viva que nunca. La narrativa es profunda, los personajes son inolvidables y el combate es brutal. Una redención absoluta para el estudio."
-    },
-    {
-      id: 2,
-      gameTitle: 'Starfield',
-      image: 'https://www.freetogame.com/g/516/thumbnail.jpg',
-      score: 6.8,
-      date: '02/11/2026',
-      hoursPlayed: 45,
-      recommended: false,
-      text: "Tiene momentos brillantes, pero la exploración se siente fragmentada por tantas pantallas de carga. Cumple como RPG espacial, pero le falta el alma que tenían otros juegos de la compañía. Bueno, pero no increíble."
-    },
-    {
-      id: 3,
-      gameTitle: 'Hades',
-      image: 'https://www.freetogame.com/g/475/thumbnail.jpg',
-      score: 10,
-      date: '20/09/2026',
-      hoursPlayed: 85,
-      recommended: true,
-      text: "Una obra maestra del género roguelike. La forma en que la historia avanza con cada muerte hace que el fracaso sea parte de la diversión. La música, el arte y la jugabilidad son perfectos de principio a fin."
-    }
-  ];
+  const [reviewsData, setReviewsData] = useState([]);
+  const [misJuegos, setMisJuegos] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Función para determinar el color de la nota
+  // Estados del modal de Crear / Editar
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [formData, setFormData] = useState(INITIAL_FORM);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    cargarDatos();
+  }, []);
+
+  const cargarDatos = async () => {
+    try {
+      setLoading(true);
+      const [resReviews, resJuegos] = await Promise.all([
+        getMisReviews(),
+        getJuegos(),
+      ]);
+
+      const listaReviews = Array.isArray(resReviews.data)
+        ? resReviews.data
+        : resReviews.data?.data || [];
+      const listaJuegos = Array.isArray(resJuegos.data)
+        ? resJuegos.data
+        : resJuegos.data?.data || [];
+
+      setReviewsData(listaReviews);
+      setMisJuegos(listaJuegos);
+    } catch (error) {
+      console.error('Error al cargar reseñas:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Color neón según escala 1 a 5 de tu tabla SQL
   const getScoreColor = (score) => {
-    if (score >= 9) return '#00e5ff'; // Cyan para obras maestras
-    if (score >= 7) return '#00ff88'; // Verde neón para buenos
-    if (score >= 5) return '#ffaa00'; // Naranja para regulares
-    return '#ff0055'; // Rojo para malos
+    const val = Number(score) || 0;
+    if (val >= 5) return '#00e5ff'; // Cyan para obra maestra (5/5)
+    if (val >= 4) return '#00ff88'; // Verde neón para muy bueno (4/5)
+    if (val >= 3) return '#ffaa00'; // Naranja para regular (3/5)
+    return '#ff0055'; // Rojo para malo (1-2/5)
+  };
+
+  const formatearFecha = (fechaRaw) => {
+    if (!fechaRaw) return 'SIN FECHA';
+    const d = new Date(fechaRaw);
+    if (isNaN(d.getTime())) return String(fechaRaw);
+    return d.toLocaleDateString('es-AR');
+  };
+
+  const handleAbrirCrear = () => {
+    setEditingId(null);
+    const primerJuego = misJuegos[0];
+    setFormData({
+      juego_id: primerJuego ? String(primerJuego.id) : '',
+      puntaje: 5,
+      texto: '',
+    });
+    setModalOpen(true);
+  };
+
+  const handleAbrirEditar = (review) => {
+    const juego = review.juegos || {};
+    setEditingId(review.id);
+    setFormData({
+      juego_id: String(review.juego_id || juego.id || ''),
+      puntaje: review.puntaje ?? 5,
+      texto: review.texto || '',
+    });
+    setModalOpen(true);
+  };
+
+  const handleGuardarReview = async (e) => {
+    e.preventDefault();
+    if (!formData.texto.trim()) return;
+    if (!formData.juego_id) {
+      alert('Primero debés tener al menos un juego en tu biblioteca para reseñarlo.');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const payload = {
+        juego_id: Number(formData.juego_id) || formData.juego_id,
+        puntaje: Math.min(5, Math.max(1, Math.round(Number(formData.puntaje) || 1))),
+        texto: formData.texto.trim(),
+      };
+
+      if (editingId) {
+        await updateReview(editingId, payload);
+      } else {
+        await createReview(payload);
+      }
+
+      await cargarDatos();
+      setModalOpen(false);
+      setFormData(INITIAL_FORM);
+      setEditingId(null);
+    } catch (error) {
+      console.error('Error al guardar el análisis:', error);
+      alert('No se pudo guardar el análisis. Revisá los datos o tu sesión.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEliminar = async (id, titulo) => {
+    if (!window.confirm(`¿Eliminar definitivamente tu reseña de "${titulo}"?`)) return;
+
+    try {
+      await deleteReview(id);
+      setReviewsData((prev) => prev.filter((r) => r.id !== id));
+    } catch (error) {
+      console.error('Error al eliminar reseña:', error);
+      alert('No se pudo eliminar la reseña.');
+    }
   };
 
   return (
@@ -53,81 +146,202 @@ export default function Reviews() {
           <h1>Análisis & Reseñas</h1>
           <p>Tus veredictos y registros de juego</p>
         </div>
-        <NewReviewButton>
+        <NewReviewButton onClick={handleAbrirCrear}>
           <span className="btn-text">+ NUEVO ANÁLISIS</span>
-          <div className="glitch-effect"></div>
         </NewReviewButton>
       </Header>
 
-      <ReviewsGrid>
-        {reviewsData.map((review) => (
-          <ReviewCard key={review.id} $scoreColor={getScoreColor(review.score)}>
-            <div className="card-header">
-              <div className="game-art">
-                <img src={review.image} alt={review.gameTitle} />
-                <div className="art-overlay"></div>
-              </div>
-              
-              <div className="header-info">
-                <h2>{review.gameTitle}</h2>
-                <div className="meta-data">
-                  <span className="terminal-text">REGISTRO_{review.id} // {review.date}</span>
+      {loading ? (
+        <EmptyState>Descifrando registros de análisis...</EmptyState>
+      ) : reviewsData.length === 0 ? (
+        <EmptyState>
+          Todavía no escribiste ningún análisis. Hacé clic en{' '}
+          <strong>+ NUEVO ANÁLISIS</strong> para registrar tu primer veredicto.
+        </EmptyState>
+      ) : (
+        <ReviewsGrid>
+          {reviewsData.map((review) => {
+            const juegoRelacionado =
+              review.juegos ||
+              misJuegos.find((j) => String(j.id) === String(review.juego_id)) ||
+              {};
+
+            const gameTitle =
+              juegoRelacionado.nombre ||
+              juegoRelacionado.title ||
+              'Juego Registrado';
+            const image =
+              juegoRelacionado.imagen ||
+              `https://via.placeholder.com/150/111/00e5ff?text=${encodeURIComponent(gameTitle)}`;
+            const score = review.puntaje ?? 0;
+            const date = formatearFecha(review.created_at);
+            const hoursPlayed = juegoRelacionado.horas ?? 0;
+            const recommended = Number(score) >= 3;
+            const text = review.texto || '';
+
+            return (
+              <ReviewCard key={review.id} $scoreColor={getScoreColor(score)}>
+                <div className="card-header">
+                  <div className="game-art">
+                    <img
+                      src={image}
+                      alt={gameTitle}
+                      onError={(e) => {
+                        e.target.src =
+                          'https://via.placeholder.com/150/111/00e5ff?text=HUD';
+                      }}
+                    />
+                    <div className="art-overlay"></div>
+                  </div>
+
+                  <div className="header-info">
+                    <h2>{gameTitle}</h2>
+                    <div className="meta-data">
+                      <span className="terminal-text">
+                        REGISTRO_{review.id} // {date}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="score-hexagon">
+                    <div className="hex-inner">
+                      <span className="score-value">{score}/5</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="score-hexagon">
-                <div className="hex-inner">
-                  <span className="score-value">{review.score}</span>
+                <div className="card-body">
+                  <div className="quote-icon">"</div>
+                  <p>{text}</p>
                 </div>
-              </div>
-            </div>
 
-            <div className="card-body">
-              <div className="quote-icon">"</div>
-              <p>{review.text}</p>
-            </div>
+                <div className="card-footer">
+                  <div className="hours-logged">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                    <span>{hoursPlayed} HRS REGISTRADAS</span>
+                  </div>
 
-            <div className="card-footer">
-              <div className="hours-logged">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <polyline points="12 6 12 12 16 14"></polyline>
-                </svg>
-                <span>{review.hoursPlayed} HRS REGISTRADAS</span>
+                  <div className="footer-right">
+                    <div className={`recommendation ${recommended ? 'yes' : 'no'}`}>
+                      {recommended ? (
+                        <>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+                          </svg>
+                          RECOMENDADO
+                        </>
+                      ) : (
+                        <>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"></path>
+                          </svg>
+                          NO RECOMENDADO
+                        </>
+                      )}
+                    </div>
+
+                    <ActionMiniBtn
+                      title="Editar análisis"
+                      onClick={() => handleAbrirEditar(review)}
+                    >
+                      ✎
+                    </ActionMiniBtn>
+                    <ActionMiniBtn
+                      className="danger"
+                      title="Eliminar análisis"
+                      onClick={() => handleEliminar(review.id, gameTitle)}
+                    >
+                      ✕
+                    </ActionMiniBtn>
+                  </div>
+                </div>
+              </ReviewCard>
+            );
+          })}
+        </ReviewsGrid>
+      )}
+
+      {/* MODAL PARA CREAR / EDITAR ANÁLISIS */}
+      {modalOpen && (
+        <ModalOverlay onClick={() => setModalOpen(false)}>
+          <ModalBox onClick={(e) => e.stopPropagation()}>
+            <h2>{editingId ? 'Editar Análisis' : 'Nuevo Análisis'}</h2>
+
+            <form onSubmit={handleGuardarReview}>
+              <div className="field">
+                <label>Juego de tu biblioteca *</label>
+                <select
+                  required
+                  value={formData.juego_id}
+                  disabled={Boolean(editingId)}
+                  onChange={(e) =>
+                    setFormData({ ...formData, juego_id: e.target.value })
+                  }
+                >
+                  {misJuegos.length === 0 ? (
+                    <option value="">No tenés juegos cargados aún</option>
+                  ) : (
+                    misJuegos.map((juego) => (
+                      <option key={juego.id} value={juego.id}>
+                        {juego.nombre || juego.title}
+                      </option>
+                    ))
+                  )}
+                </select>
               </div>
-              
-              <div className={`recommendation ${review.recommended ? 'yes' : 'no'}`}>
-                {review.recommended ? (
-                  <>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
-                    </svg>
-                    RECOMENDADO
-                  </>
-                ) : (
-                  <>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"></path>
-                    </svg>
-                    NO RECOMENDADO
-                  </>
-                )}
+
+              <div className="field">
+                <label>Puntaje (1 a 5 estrellas)</label>
+                <input
+                  type="number"
+                  step="1"
+                  min="1"
+                  max="5"
+                  required
+                  value={formData.puntaje}
+                  onChange={(e) =>
+                    setFormData({ ...formData, puntaje: e.target.value })
+                  }
+                />
               </div>
-            </div>
-          </ReviewCard>
-        ))}
-      </ReviewsGrid>
+
+              <div className="field">
+                <label>Veredicto / Reseña *</label>
+                <textarea
+                  rows="4"
+                  required
+                  value={formData.texto}
+                  onChange={(e) =>
+                    setFormData({ ...formData, texto: e.target.value })
+                  }
+                  placeholder="Escribí tu análisis técnico y experiencia con el juego..."
+                />
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="cancel"
+                  onClick={() => setModalOpen(false)}
+                >
+                  CANCELAR
+                </button>
+                <button type="submit" className="save" disabled={saving}>
+                  {saving ? 'GUARDANDO...' : 'PUBLICAR'}
+                </button>
+              </div>
+            </form>
+          </ModalBox>
+        </ModalOverlay>
+      )}
     </ReviewsWrapper>
   );
 }
 
 // --- ANIMACIONES ---
-const float = keyframes`
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-5px); }
-  100% { transform: translateY(0px); }
-`;
-
 const pulseBorder = keyframes`
   0% { box-shadow: 0 0 0 0 rgba(var(--score-color-rgb), 0.4); }
   70% { box-shadow: 0 0 0 10px rgba(var(--score-color-rgb), 0); }
@@ -137,6 +351,7 @@ const pulseBorder = keyframes`
 // --- ESTILOS ---
 const ReviewsWrapper = styled.div`
   width: 100%;
+  box-sizing: border-box;
   min-height: 100vh;
   background-color: #040406;
   padding: 40px 60px;
@@ -157,6 +372,20 @@ const ReviewsWrapper = styled.div`
   }
 `;
 
+const EmptyState = styled.div`
+  text-align: center;
+  padding: 60px 20px;
+  color: #6a6a8a;
+  border: 1px dashed #1a1a2e;
+  border-radius: 16px;
+  background: rgba(10, 10, 20, 0.4);
+  font-size: 16px;
+
+  strong {
+    color: #00e5ff;
+  }
+`;
+
 const Header = styled.header`
   display: flex;
   justify-content: space-between;
@@ -164,6 +393,8 @@ const Header = styled.header`
   margin-bottom: 50px;
   border-bottom: 1px solid rgba(0, 229, 255, 0.1);
   padding-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 20px;
 
   .title-area {
     h1 {
@@ -225,10 +456,7 @@ const ReviewCard = styled.div`
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 
-  /* Variables dinámicas para el color de la nota */
   --score-color: ${(props) => props.$scoreColor};
-  
-  /* Conversión manual rápida de HEX a RGB para el box-shadow */
   --score-color-rgb: ${(props) => 
     props.$scoreColor === '#00e5ff' ? '0, 229, 255' : 
     props.$scoreColor === '#00ff88' ? '0, 255, 136' : 
@@ -316,7 +544,7 @@ const ReviewCard = styled.div`
       }
 
       .score-value {
-        font-size: 22px;
+        font-size: 18px;
         font-weight: 900;
         color: var(--score-color);
         text-shadow: 0 0 10px rgba(var(--score-color-rgb), 0.8);
@@ -354,6 +582,8 @@ const ReviewCard = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
     padding: 16px 24px;
     background: #06060a;
     border-top: 1px solid #1a1a2e;
@@ -370,6 +600,12 @@ const ReviewCard = styled.div`
       letter-spacing: 1px;
 
       svg { width: 16px; height: 16px; }
+    }
+
+    .footer-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .recommendation {
@@ -395,6 +631,126 @@ const ReviewCard = styled.div`
         background: rgba(255, 0, 85, 0.1);
         border: 1px solid rgba(255, 0, 85, 0.2);
       }
+    }
+  }
+`;
+
+const ActionMiniBtn = styled.button`
+  background: #11111f;
+  border: 1px solid #1a1a2e;
+  color: #8a8aa8;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  transition: all 0.2s;
+
+  &:hover {
+    color: #00e5ff;
+    border-color: #00e5ff;
+  }
+
+  &.danger:hover {
+    color: #ff0055;
+    border-color: #ff0055;
+  }
+`;
+
+// --- ESTILOS DEL MODAL ---
+const ModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(6px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+`;
+
+const ModalBox = styled.div`
+  background: #0a0a14;
+  border: 1px solid #00e5ff;
+  box-shadow: 0 0 30px rgba(0, 229, 255, 0.2);
+  border-radius: 16px;
+  padding: 30px;
+  width: 100%;
+  max-width: 500px;
+
+  h2 {
+    margin: 0 0 20px 0;
+    color: #00e5ff;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-size: 22px;
+  }
+
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    label {
+      font-size: 12px;
+      color: #8a8aa8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    input, select, textarea {
+      background: #11111f;
+      border: 1px solid #1a1a2e;
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+
+      &:focus {
+        outline: none;
+        border-color: #00e5ff;
+      }
+    }
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 10px;
+
+    button {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 1px;
+    }
+
+    .cancel {
+      background: transparent;
+      border: 1px solid #2a2a44;
+      color: #8a8aa8;
+      &:hover { color: #fff; border-color: #fff; }
+    }
+
+    .save {
+      background: #007bff;
+      border: 1px solid #00e5ff;
+      color: #fff;
+      &:hover { background: #00e5ff; color: #040406; }
+      &:disabled { opacity: 0.5; cursor: not-allowed; }
     }
   }
 `;

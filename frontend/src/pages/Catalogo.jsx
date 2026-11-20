@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { buscarCatalogo } from '../api';
-import axios from 'axios';
+import api from '../api/axios'; // Importas tu nueva "aduana"
 
 export default function Catalogo() {
   const [query, setQuery] = useState('');
@@ -29,14 +29,13 @@ export default function Catalogo() {
   // Función para guardar el juego en Supabase (Próximo paso en el backend)
   const guardarEnMisJuegos = async (juego) => {
     try {
-      // Tomamos el ID del usuario si lo tenés guardado (ajustá esto según tu auth)
+      // Como ahora usas el interceptor, el backend YA SABE quién es el usuario
+      // gracias al token que se envía solo, pero si tu backend pide el id en el body, 
+      // puedes dejar esto:
       const usuario_id = localStorage.getItem("usuario_id") || "ID_TEST"; 
 
-      // Alerta temporal hasta que armemos la ruta en el backend
-      alert(`Preparando para guardar: \${juego.nombre}. \n¡Falta crear la ruta en el backend!`);
-      
-      /* ESTE SERÁ EL CÓDIGO REAL:
-      await axios.post("https://TU_BACKEND_EN_RENDER.onrender.com/juegos/guardar", {
+      // CÓDIGO REAL USANDO TU NUEVA API
+      await api.post("/juegos/guardar", {
         id_externo: juego.id_externo,
         nombre: juego.nombre,
         imagen: juego.imagen,
@@ -44,8 +43,9 @@ export default function Catalogo() {
         plataforma: juego.plataformas[0] || "PC",
         usuario_id: usuario_id
       });
-      alert("¡Juego guardado en tu perfil!");
-      */
+      
+      alert(`¡${juego.nombre} guardado en tu perfil!`);
+
     } catch (error) {
       console.error("Error al guardar el juego:", error);
       alert("Hubo un error al guardar el juego.");

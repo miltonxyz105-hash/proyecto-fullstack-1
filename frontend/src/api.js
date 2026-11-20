@@ -1,17 +1,63 @@
 import axios from 'axios'
+// IMPORTANTE: Asegúrate de que esta ruta apunte a tu configuración de Supabase
+import { supabase } from './supabaseClient' 
 
 const api = axios.create({
   baseURL: 'https://proyecto-fullstack-1-moip.onrender.com'
 })
 
-// Interceptor para agregar el token a todas las peticiones
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+// 1. Interceptor de PETICIONES (Saca el token directo de Supabase, es más seguro que localStorage)
+api.interceptors.request.use(async (config) => {
+  const { data } = await supabase.auth.getSession();
+  
+  if (data?.session?.access_token) {
+    config.headers.Authorization = `Bearer ${data.session.access_token}`;
   }
-  return config
+  return config;
+}, (error) => {
+  return Promise.reject(error);
 })
+
+// 2. Interceptor de RESPUESTAS (La "aduana" que atrapa el 401 y renueva el token sin molestar)
+api.interceptors.response.use(
+  (response) => {
+    return response; // Todo salió bien (200 OK)
+  },
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Si da error 401 (token vencido) y no hemos intentado renovarlo aún
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        const { data, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !data.session) {
+          throw new Error("No se pudo renovar la sesión");
+        }
+
+        // Le ponemos el nuevo token a la petición que falló
+        originalRequest.headers.Authorization = `Bearer ${data.session.access_token}`;
+        
+        // Disparamos la petición de nuevo
+        return api(originalRequest);
+        
+      } catch (refreshError) {
+        // Si falló la renovación (ej. pasó un mes), mandamos al login
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
+
+// ==========================================
+// TUS RUTAS (Se quedan exactamente igual, ¡no tocas nada!)
+// ==========================================
 
 // AUTH
 export const register = (data) => api.post('/auth/register', data)
@@ -55,4 +101,4 @@ export const deleteTarea = (id) => api.delete(`/tareas/${id}`)
 // CATÁLOGO RAWG
 export const buscarCatalogo = (query) => api.get(`/catalogo/buscar?q=${query}`);
 
-export default api
+export default api;
